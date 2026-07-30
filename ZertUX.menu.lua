@@ -1,5 +1,5 @@
 -- =====================================================
---  ZertUX Menu (только хедер)
+--  ZertUX Menu (только хедер, серая обводка)
 -- =====================================================
 
 local player = game:GetService("Players").LocalPlayer
@@ -23,6 +23,7 @@ local mainCorner = Instance.new("UICorner")
 mainCorner.CornerRadius = UDim.new(0, 6)
 mainCorner.Parent = mainFrame
 
+-- Серая обводка (тонкая)
 local mainStroke = Instance.new("UIStroke")
 mainStroke.Color = Color3.fromRGB(60, 60, 60)
 mainStroke.Thickness = 1
@@ -62,4 +63,4 @@ title.TextXAlignment = Enum.TextXAlignment.Center
 title.TextYAlignment = Enum.TextYAlignment.Center
 title.Parent = header
 
-print("✅ ZertUX Menu (только хедер) загружен!")
+print("✅ ZertUX Menu (серая обводка) загружен!")
