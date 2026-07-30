@@ -1,10 +1,10 @@
 -- =====================================================
---  ZertUX Menu (только хедер, серая обводка)
+--  Zertyx Menu (только хедер, левый угол)
 -- =====================================================
 
 local player = game:GetService("Players").LocalPlayer
 local gui = Instance.new("ScreenGui")
-gui.Name = "ZertUX"
+gui.Name = "Zertyx"
 gui.ResetOnSpawn = false
 gui.Parent = player:WaitForChild("PlayerGui")
 
@@ -23,7 +23,7 @@ local mainCorner = Instance.new("UICorner")
 mainCorner.CornerRadius = UDim.new(0, 6)
 mainCorner.Parent = mainFrame
 
--- Серая обводка (тонкая)
+-- Серая обводка
 local mainStroke = Instance.new("UIStroke")
 mainStroke.Color = Color3.fromRGB(60, 60, 60)
 mainStroke.Thickness = 1
@@ -50,17 +50,17 @@ headerStroke.Thickness = 1
 headerStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 headerStroke.Parent = header
 
--- Название "ZertUX" по центру
+-- Название "Zertyx" в левом углу (не жирный)
 local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 1, 0)
-title.Position = UDim2.new(0, 0, 0, 0)
+title.Size = UDim2.new(0.5, 0, 1, 0)       -- только левая половина
+title.Position = UDim2.new(0, 10, 0, 0)   -- отступ слева
 title.BackgroundTransparency = 1
-title.Text = "ZertUX"
+title.Text = "Zertyx"
 title.TextColor3 = Color3.fromRGB(255, 255, 255)
-title.TextSize = 22
-title.Font = Enum.Font.GothamBold
-title.TextXAlignment = Enum.TextXAlignment.Center
+title.TextSize = 20
+title.Font = Enum.Font.GothamMedium        -- не жирный
+title.TextXAlignment = Enum.TextXAlignment.Left
 title.TextYAlignment = Enum.TextYAlignment.Center
 title.Parent = header
 
-print("✅ ZertUX Menu (серая обводка) загружен!")
+print("✅ Zertyx Menu (левый угол) загружен!")
