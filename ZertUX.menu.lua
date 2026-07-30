@@ -1,54 +1,62 @@
--- Создаём меню Zertyx
+-- Меню Zertyx (матово-чёрное, скруглённые углы)
 local player = game.Players.LocalPlayer
 local gui = player:WaitForChild("PlayerGui")
 
--- Проверяем, нет ли уже такого меню, чтобы не дублировать
 if gui:FindFirstChild("ZertyxMenu") then
     gui.ZertyxMenu:Destroy()
 end
 
--- Основной контейнер (ScreenGui)
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "ZertyxMenu"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = gui
 
--- Главное окно (Frame)
+-- Главное окно
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 640, 0, 420)          -- размер 640x420
-mainFrame.Position = UDim2.new(0.5, -320, 0.5, -210) -- центрирование
-mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30) -- тёмный фон
-mainFrame.BackgroundTransparency = 0.1
+mainFrame.Size = UDim2.new(0, 640, 0, 420)
+mainFrame.Position = UDim2.new(0.5, -320, 0.5, -210)
+mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20) -- матово-чёрный
+mainFrame.BackgroundTransparency = 0 -- полностью непрозрачный
 mainFrame.BorderSizePixel = 0
-mainFrame.Active = true        -- для возможности перетаскивания
-mainFrame.Draggable = false    -- будет своя логика перетаскивания
+mainFrame.Active = true
+mainFrame.Draggable = false
 mainFrame.Parent = screenGui
 
--- Хедер (серая полоска сверху)
+-- Скругление углов (6 пикселей)
+local corners = Instance.new("UICorner")
+corners.CornerRadius = UDim.new(0, 6)
+corners.Parent = mainFrame
+
+-- Хедер (тоже матово-чёрный)
 local header = Instance.new("Frame")
-header.Size = UDim2.new(1, 0, 0, 30)               -- на всю ширину, высота 30
+header.Size = UDim2.new(1, 0, 0, 30)
 header.Position = UDim2.new(0, 0, 0, 0)
-header.BackgroundColor3 = Color3.fromRGB(80, 80, 80) -- серый
+header.BackgroundColor3 = Color3.fromRGB(20, 20, 20) -- тот же цвет
 header.BorderSizePixel = 0
 header.Parent = mainFrame
 
--- Текст "меню Zertyx" белого цвета, слева
+-- Тонкая серая полоска снизу хедера (для выделения)
+local divider = Instance.new("Frame")
+divider.Size = UDim2.new(1, 0, 0, 1)
+divider.Position = UDim2.new(0, 0, 1, -1) -- внизу хедера
+divider.BackgroundColor3 = Color3.fromRGB(100, 100, 100) -- серый
+divider.BorderSizePixel = 0
+divider.Parent = header
+
+-- Надпись "меню Zertyx" белая, слева
 local titleLabel = Instance.new("TextLabel")
-titleLabel.Size = UDim2.new(1, -10, 1, 0)          -- с отступом справа 10
-titleLabel.Position = UDim2.new(0, 10, 0, 0)       -- сдвиг влево на 10
+titleLabel.Size = UDim2.new(1, -10, 1, 0)
+titleLabel.Position = UDim2.new(0, 10, 0, 0)
 titleLabel.BackgroundTransparency = 1
 titleLabel.Text = "меню Zertyx"
-titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255) -- белый
+titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 titleLabel.TextSize = 18
 titleLabel.TextXAlignment = Enum.TextXAlignment.Left
 titleLabel.TextYAlignment = Enum.TextYAlignment.Center
 titleLabel.Font = Enum.Font.GothamBold
 titleLabel.Parent = header
 
--- (Опционально) кнопка закрытия "X" справа (можно добавить позже)
--- ...
-
--- ===== Логика перетаскивания окна за хедер =====
+-- ===== Перетаскивание за хедер =====
 local dragging = false
 local dragStart = nil
 local startPos = nil
@@ -75,7 +83,7 @@ game:GetService("UserInputService").InputChanged:Connect(function(input)
     end
 end)
 
--- ===== Открытие/закрытие по клавише Insert =====
+-- ===== Открытие/закрытие по Insert =====
 local visible = true
 game:GetService("UserInputService").InputBegan:Connect(function(input, processed)
     if processed then return end
@@ -85,5 +93,4 @@ game:GetService("UserInputService").InputBegan:Connect(function(input, processed
     end
 end)
 
--- Вывод в консоль для подтверждения
-print("Меню Zertyx загружено! Нажмите Insert для показа/скрытия.")
+print("Меню Zertyx (обновлённое) загружено! Нажмите Insert.")
