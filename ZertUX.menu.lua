@@ -1,5 +1,5 @@
 -- =====================================================
---  Zertyx Menu (ESP с динамичным RGB и белым Box)
+--  Zertyx Menu (ESP с чекбоксами)
 -- =====================================================
 
 local player = game:GetService("Players").LocalPlayer
@@ -164,7 +164,7 @@ rightLabelAim.TextYAlignment = Enum.TextYAlignment.Center
 rightLabelAim.Parent = rightHalfAim
 
 -- ============================================================
---  ВКЛАДКА ESP (с динамичным RGB и белым Box)
+--  ВКЛАДКА ESP (с чекбоксами)
 -- ============================================================
 local espPage = pages["Esp"]
 local espEnabled = false
@@ -175,7 +175,6 @@ local espObjects = {}
 
 -- Проверка Drawing API
 local hasDrawing = pcall(function() return Drawing end) and Drawing ~= nil
-print("🔍 Drawing API доступен:", hasDrawing)
 
 -- Функция для поиска корневой части
 local function getRootPart(character)
@@ -196,7 +195,7 @@ local function isEnemy(plr)
     if not plr.Character then return false end
     local humanoid = plr.Character:FindFirstChild("Humanoid")
     if not humanoid then
-        return true -- если нет Humanoid, считаем врагом
+        return true
     end
     if humanoid.Health <= 0 then return false end
     if player.Team and plr.Team and player.Team == plr.Team then
@@ -226,11 +225,9 @@ local hue = 0
 
 -- Основной цикл обновления ESP
 RunService.RenderStepped:Connect(function()
-    -- Обновляем hue для радужного эффекта (0.5-0.7 для сине-голубого спектра)
     hue = (hue + 0.002) % 1
-    local dynamicColor = Color3.fromHSV(hue, 0.8, 1)  -- насыщенный, яркий
+    local dynamicColor = Color3.fromHSV(hue, 0.8, 1)
 
-    -- Удаляем объекты для мёртвых или не-врагов
     for plr, data in pairs(espObjects) do
         if not plr or not plr.Parent or not isEnemy(plr) or not plr.Character then
             if data.highlight then data.highlight:Destroy() end
@@ -243,11 +240,8 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- Обходим всех игроков
     for _, plr in pairs(Players:GetPlayers()) do
-        if not isEnemy(plr) then
-            continue
-        end
+        if not isEnemy(plr) then continue end
         local character = plr.Character
         if not character then continue end
         local humanoid = character:FindFirstChild("Humanoid")
@@ -255,16 +249,13 @@ RunService.RenderStepped:Connect(function()
 
         local rootPart = getRootPart(character)
         local head = character:FindFirstChild("Head")
-        if not rootPart or not head then
-            continue
-        end
+        if not rootPart or not head then continue end
 
         if not espObjects[plr] then
             espObjects[plr] = {}
         end
         local data = espObjects[plr]
 
-        -- Highlight с динамичным цветом
         if espEnabled then
             if not data.highlight then
                 local highlight = Instance.new("Highlight")
@@ -277,7 +268,6 @@ RunService.RenderStepped:Connect(function()
                 highlight.Parent = character
                 data.highlight = highlight
             else
-                -- Обновляем цвет каждый кадр
                 data.highlight.FillColor = dynamicColor
                 data.highlight.OutlineColor = dynamicColor
             end
@@ -288,28 +278,25 @@ RunService.RenderStepped:Connect(function()
             end
         end
 
-        -- 2D Box (белый, увеличенный, обводит всего персонажа)
         if boxEnabled and hasDrawing then
             if not data.boxLines then
                 data.boxLines = {}
                 for i = 1, 4 do
                     local line = Drawing.new("Line")
-                    line.Color = Color3.fromRGB(255, 255, 255)  -- белый
-                    line.Thickness = 3                         -- чуть толще
+                    line.Color = Color3.fromRGB(255, 255, 255)
+                    line.Thickness = 3
                     line.Transparency = 0.6
                     line.Visible = false
                     table.insert(data.boxLines, line)
                 end
             end
-            -- Вычисляем размеры бокса, чтобы обводить всего персонажа
             local headPos = head.Position
             local rootPos = rootPart.Position
             local height = (headPos - rootPos).Magnitude
-            -- Увеличиваем ширину бокса (коэффициент 0.8 вместо 0.4)
             local width = height * 0.8
 
-            local topPos = headPos + Vector3.new(0, 1, 0)          -- выше головы
-            local bottomPos = rootPos - Vector3.new(0, 0.5, 0)     -- ниже ног
+            local topPos = headPos + Vector3.new(0, 1, 0)
+            local bottomPos = rootPos - Vector3.new(0, 0.5, 0)
 
             local topScreen, topVis = Camera:WorldToViewportPoint(topPos)
             local bottomScreen, bottomVis = Camera:WorldToViewportPoint(bottomPos)
@@ -319,7 +306,7 @@ RunService.RenderStepped:Connect(function()
                 local bottomY = bottomScreen.Y
                 local centerX = (topScreen.X + bottomScreen.X) / 2
                 local boxHeight = math.abs(topY - bottomY)
-                local boxWidth = boxHeight * 0.6                  -- ширина относительно высоты
+                local boxWidth = boxHeight * 0.6
 
                 local leftX = centerX - boxWidth / 2
                 local rightX = centerX + boxWidth / 2
@@ -359,7 +346,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ============================================================
---  ИНТЕРФЕЙС ВКЛАДКИ ESP
+--  ИНТЕРФЕЙС ВКЛАДКИ ESP (чекбоксы)
 -- ============================================================
 local espPage = pages["Esp"]
 
@@ -377,105 +364,80 @@ leftHalfEsp.Position = UDim2.new(0, 5, 0, 0)
 leftHalfEsp.BackgroundTransparency = 1
 leftHalfEsp.Parent = espPage
 
--- ESP Toggle
-local rowEsp = Instance.new("Frame")
-rowEsp.Size = UDim2.new(1, 0, 0, 40)
-rowEsp.Position = UDim2.new(0, 0, 0.1, 0)
-rowEsp.BackgroundTransparency = 1
-rowEsp.Parent = leftHalfEsp
+-- Функция создания чекбокса
+local function createCheckbox(parent, text, yPos, defaultValue, callback)
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1, 0, 0, 28)
+    row.Position = UDim2.new(0, 0, 0, yPos)
+    row.BackgroundTransparency = 1
+    row.Parent = parent
 
-local labelEsp = Instance.new("TextLabel")
-labelEsp.Size = UDim2.new(0.6, 0, 1, 0)
-labelEsp.Position = UDim2.new(0, 10, 0, 0)
-labelEsp.BackgroundTransparency = 1
-labelEsp.Text = "ESP"
-labelEsp.TextColor3 = Color3.fromRGB(255, 255, 255)
-labelEsp.TextSize = 18
-labelEsp.Font = Enum.Font.GothamBold
-labelEsp.TextXAlignment = Enum.TextXAlignment.Left
-labelEsp.TextYAlignment = Enum.TextYAlignment.Center
-labelEsp.Parent = rowEsp
+    -- Надпись (маленькая, слева)
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0.5, 0, 1, 0)
+    label.Position = UDim2.new(0, 5, 0, 0)
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.TextColor3 = Color3.fromRGB(200, 200, 200)
+    label.TextSize = 14  -- меньше
+    label.Font = Enum.Font.GothamMedium
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.TextYAlignment = Enum.TextYAlignment.Center
+    label.Parent = row
 
-local toggleEsp = Instance.new("TextButton")
-toggleEsp.Size = UDim2.new(0, 80, 0, 32)
-toggleEsp.Position = UDim2.new(0.75, 0, 0.5, -16)
-toggleEsp.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
-toggleEsp.BackgroundTransparency = 0.2
-toggleEsp.BorderSizePixel = 0
-toggleEsp.Text = "OFF"
-toggleEsp.TextColor3 = Color3.fromRGB(255, 255, 255)
-toggleEsp.TextSize = 16
-toggleEsp.Font = Enum.Font.SourceSansBold
-toggleEsp.Parent = rowEsp
-local btnCornerEsp = Instance.new("UICorner")
-btnCornerEsp.CornerRadius = UDim.new(0, 6)
-btnCornerEsp.Parent = toggleEsp
+    -- Квадратный чекбокс (с галочкой)
+    local checkbox = Instance.new("TextButton")
+    checkbox.Size = UDim2.new(0, 22, 0, 22)
+    checkbox.Position = UDim2.new(0.55, 0, 0.5, -11)
+    checkbox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+    checkbox.BackgroundTransparency = 0.2
+    checkbox.BorderSizePixel = 0
+    checkbox.Text = defaultValue and "✓" or ""
+    checkbox.TextColor3 = Color3.fromRGB(255, 255, 255)
+    checkbox.TextSize = 18
+    checkbox.Font = Enum.Font.GothamBold
+    checkbox.Parent = row
+    local cbCorner = Instance.new("UICorner")
+    cbCorner.CornerRadius = UDim.new(0, 4)
+    cbCorner.Parent = checkbox
 
-local function updateEspState(state)
+    -- Эффект наведения
+    checkbox.MouseEnter:Connect(function()
+        if checkbox.BackgroundTransparency > 0.1 then
+            TweenService:Create(checkbox, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65)}):Play()
+        end
+    end)
+    checkbox.MouseLeave:Connect(function()
+        if checkbox.BackgroundTransparency < 0.9 then
+            TweenService:Create(checkbox, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(40, 40, 45)}):Play()
+        end
+    end)
+
+    local state = defaultValue
+    checkbox.MouseButton1Click:Connect(function()
+        state = not state
+        checkbox.Text = state and "✓" or ""
+        checkbox.BackgroundColor3 = state and Color3.fromRGB(0, 180, 0) or Color3.fromRGB(40, 40, 45)
+        callback(state)
+        playClickSound()
+    end)
+
+    -- Устанавливаем начальный цвет, если включено
+    if defaultValue then
+        checkbox.BackgroundColor3 = Color3.fromRGB(0, 180, 0)
+    end
+
+    return checkbox
+end
+
+-- Создаём чекбоксы
+local espCheckbox = createCheckbox(leftHalfEsp, "ESP", 15, false, function(state)
     espEnabled = state
-    if state then
-        toggleEsp.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
-        toggleEsp.Text = "ON"
-    else
-        toggleEsp.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
-        toggleEsp.Text = "OFF"
-    end
-end
-
-toggleEsp.MouseButton1Click:Connect(function()
-    updateEspState(not espEnabled)
 end)
-updateEspState(false)
 
--- 2D Box Toggle
-local rowBox = Instance.new("Frame")
-rowBox.Size = UDim2.new(1, 0, 0, 40)
-rowBox.Position = UDim2.new(0, 0, 0.25, 0)
-rowBox.BackgroundTransparency = 1
-rowBox.Parent = leftHalfEsp
-
-local labelBox = Instance.new("TextLabel")
-labelBox.Size = UDim2.new(0.6, 0, 1, 0)
-labelBox.Position = UDim2.new(0, 10, 0, 0)
-labelBox.BackgroundTransparency = 1
-labelBox.Text = "2D Box"
-labelBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-labelBox.TextSize = 18
-labelBox.Font = Enum.Font.GothamBold
-labelBox.TextXAlignment = Enum.TextXAlignment.Left
-labelBox.TextYAlignment = Enum.TextYAlignment.Center
-labelBox.Parent = rowBox
-
-local toggleBox = Instance.new("TextButton")
-toggleBox.Size = UDim2.new(0, 80, 0, 32)
-toggleBox.Position = UDim2.new(0.75, 0, 0.5, -16)
-toggleBox.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
-toggleBox.BackgroundTransparency = 0.2
-toggleBox.BorderSizePixel = 0
-toggleBox.Text = "OFF"
-toggleBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-toggleBox.TextSize = 16
-toggleBox.Font = Enum.Font.SourceSansBold
-toggleBox.Parent = rowBox
-local btnCornerBox = Instance.new("UICorner")
-btnCornerBox.CornerRadius = UDim.new(0, 6)
-btnCornerBox.Parent = toggleBox
-
-local function updateBoxState(state)
+local boxCheckbox = createCheckbox(leftHalfEsp, "2D Box", 50, false, function(state)
     boxEnabled = state
-    if state then
-        toggleBox.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
-        toggleBox.Text = "ON"
-    else
-        toggleBox.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
-        toggleBox.Text = "OFF"
-    end
-end
-
-toggleBox.MouseButton1Click:Connect(function()
-    updateBoxState(not boxEnabled)
 end)
-updateBoxState(false)
 
 -- Правая половина (заглушка)
 local rightHalfEsp = Instance.new("Frame")
@@ -585,4 +547,4 @@ tabButtons["Aim"].BackgroundColor3 = Color3.fromRGB(60, 60, 70)
 tabButtons["Aim"].BackgroundTransparency = 0.1
 tabButtons["Aim"].TextColor3 = Color3.fromRGB(255, 255, 255)
 
-print("✅ Zertyx Menu (ESP с динамичным RGB и белым Box) загружен!")
+print("✅ Zertyx Menu (чекбоксы) загружен!")
