@@ -1,174 +1,167 @@
--- Сервисы Roblox
-local TweenService = game:Service("TweenService")
+-- Создание GUI в памяти игры
+local CoreGui = game:GetService("CoreGui")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
 
--- Главный контейнер GUI
+-- Проверка на повторный запуск (удаляет старое меню, чтобы не плодились копии)
+if CoreGui:FindFirstChild("ZertyxMenu") then
+	CoreGui.ZertyxMenu:Destroy()
+end
+
+-- Основной контейнер экрана
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "ZerrtyxMenu"
+ScreenGui.Name = "ZertyxMenu"
+ScreenGui.Parent = CoreGui
 ScreenGui.ResetOnSpawn = false
-ScreenGui.Parent = script.Parent
 
--- Главная панель (640x420)
+-- Главное окно меню (640х420)
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
 MainFrame.Size = UDim2.new(0, 640, 0, 420)
 MainFrame.Position = UDim2.new(0.5, -320, 0.5, -210) -- Центр экрана
-MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25) -- Темный современный фон
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30) -- Темный фон
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
-MainFrame.Draggable = true -- Меню можно перетаскивать по экрану
+MainFrame.Draggable = true -- Меню можно перетаскивать мышкой
 MainFrame.Parent = ScreenGui
 
--- Мягкие углы для главной панели
+-- Мягкие углы для главного окна
 local MainCorner = Instance.new("UICorner")
-MainCorner.CornerRadius = UDim.new(0, 10) -- Скругление 10px
+MainCorner.CornerRadius = UDim.new(0, 10) -- Скругление 10 пикселей
 MainCorner.Parent = MainFrame
 
 -- Хедер (Верхняя панель)
 local Header = Instance.new("Frame")
 Header.Name = "Header"
-Header.Size = UDim2.new(1, 0, 0, 50)
-Header.BackgroundTransparency = 1
+Header.Size = UDim2.new(1, 0, 0, 45) -- Высота хедера 45px
+Header.Position = UDim2.new(0, 0, 0, 0)
+Header.BackgroundColor3 = Color3.fromRGB(45, 45, 45) -- Серый цвет выделения
+Header.BorderSizePixel = 0
 Header.Parent = MainFrame
 
--- Название Zerrtyx в хедере
+-- Мягкие углы для хедера (чтобы не вылезали за верхний край главного окна)
+local HeaderCorner = Instance.new("UICorner")
+HeaderCorner.CornerRadius = UDim.new(0, 10)
+HeaderCorner.Parent = Header
+
+-- Скрытие нижних углов хедера, чтобы они были прямыми стык-в-стык с фоном
+local HeaderPatch = Instance.new("Frame")
+HeaderPatch.Size = UDim2.new(1, 0, 0, 10)
+HeaderPatch.Position = UDim2.new(0, 0, 1, -10)
+HeaderPatch.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+HeaderPatch.BorderSizePixel = 0
+HeaderPatch.Parent = Header
+
+-- Название чита в хедере
 local Title = Instance.new("TextLabel")
 Title.Name = "Title"
-Title.Size = UDim2.new(0, 200, 1, 0)
-Title.Position = UDim2.new(0, 20, 0, 0)
+Title.Size = UDim2.new(1, -20, 1, 0)
+Title.Position = UDim2.new(0, 15, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "Zerrtyx"
-Title.TextColor3 = Color3.fromRGB(240, 240, 240)
-Title.TextSize = 22
+Title.Text = "Zertyx"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 20
 Title.Font = Enum.Font.GothamBold
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = Header
 
--- Серая разделяющая полоска под хедером
-local Divider = Instance.new("Frame")
-Divider.Name = "Divider"
-Divider.Size = UDim2.new(1, 0, 0, 1)
-Divider.Position = UDim2.new(0, 0, 1, 0)
-Divider.BackgroundColor3 = Color3.fromRGB(60, 60, 60) -- Серый цвет полоски
-Divider.BorderSizePixel = 0
-Divider.Parent = Header
+-- Контейнер для функций (Контентная часть)
+local ContentContainer = Instance.new("Frame")
+ContentContainer.Size = UDim2.new(1, -40, 1, -75)
+ContentContainer.Position = UDim2.new(0, 20, 0, 60)
+ContentContainer.BackgroundTransparency = 1
+ContentContainer.Parent = MainFrame
 
--- Боковая панель для красивых вкладок
-local Sidebar = Instance.new("Frame")
-Sidebar.Name = "Sidebar"
-Sidebar.Size = UDim2.new(0, 160, 1, -51)
-Sidebar.Position = UDim2.new(0, 0, 0, 51)
-Sidebar.BackgroundTransparency = 1
-Sidebar.Parent = MainFrame
+----------------------------------------------------
+-- ЛОГИКА ФУНКЦИЙ И КНОПОК
+----------------------------------------------------
 
--- UI List для автоматического выравнивания кнопок
-local UIListLayout = Instance.new("UIListLayout")
-UIListLayout.Padding = UDim.new(0, 8)
-UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-UIListLayout.VerticalAlignment = Enum.VerticalAlignment.Top
-UIListLayout.Parent = Sidebar
+local aimbotEnabled = false
+local AIM_KEY = Enum.KeyCode.E 
+local TARGET_PART = "Head"     
 
--- Контейнер для отображения контента вкладок
-local ContentFrame = Instance.new("Frame")
-ContentFrame.Name = "ContentFrame"
-ContentFrame.Size = UDim2.new(1, -170, 1, -61)
-ContentFrame.Position = UDim2.new(0, 165, 0, 56)
-ContentFrame.BackgroundTransparency = 1
-ContentFrame.Parent = MainFrame
+-- Кнопка переключения Аимбота
+local AimButton = Instance.new("TextButton")
+AimButton.Name = "AimButton"
+AimButton.Size = UDim2.new(0, 200, 0, 40)
+AimButton.Position = UDim2.new(0, 0, 0, 0)
+AimButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+AimButton.Text = "Auto Aim: OFF"
+AimButton.TextColor3 = Color3.fromRGB(255, 100, 100)
+AimButton.TextSize = 16
+AimButton.Font = Enum.Font.GothamSemibold
+AimButton.Parent = ContentContainer
 
--- Таблицы для хранения страниц и кнопок
-local tabs = {"Aim", "Visuals", "Skins"}
-local pages = {}
-local buttons = {}
+local ButtonCorner = Instance.new("UICorner")
+ButtonCorner.CornerRadius = UDim.new(0, 6)
+ButtonCorner.Parent = AimButton
 
--- Функция для создания красивой кнопки вкладки
-local function createTabButton(name)
-	local btn = Instance.new("TextButton")
-	btn.Name = name .. "Tab"
-	btn.Size = UDim2.new(0, 140, 0, 36)
-	btn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-	btn.Text = name
-	btn.TextColor3 = Color3.fromRGB(150, 150, 150)
-	btn.TextSize = 14
-	btn.Font = Enum.Font.GothamSemibold
-	btn.BorderSizePixel = 0
-	btn.AutoButtonColor = false
-	btn.Parent = Sidebar
+-- Переключение состояния по клику
+AimButton.MouseButton1Click:Connect(function()
+	aimbotEnabled = not aimbotEnabled
+	if aimbotEnabled then
+		AimButton.Text = "Auto Aim: ON"
+		AimButton.BackgroundColor3 = Color3.fromRGB(40, 100, 40)
+		AimButton.TextColor3 = Color3.fromRGB(100, 255, 100)
+	else
+		AimButton.Text = "Auto Aim: OFF"
+		AimButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+		AimButton.TextColor3 = Color3.fromRGB(255, 100, 100)
+	end
+end)
 
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 6)
-	corner.Parent = btn
-	
-	-- Логика подсветки при наведении
-	btn.MouseEnter:Connect(function()
-		if btn.TextColor3 ~= Color3.fromRGB(255, 255, 255) then
-			TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(45, 45, 45)}):Play()
-		end
-	end)
-	btn.MouseLeave:Connect(function()
-		if btn.TextColor3 ~= Color3.fromRGB(255, 255, 255) then
-			TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(35, 35, 35)}):Play()
-		end
-	end)
-	
-	return btn
-end
+-- Функция поиска цели
+local function getClosestEnemy()
+	local closestTarget = nil
+	local maxDistance = math.huge
+	local localCharacter = LocalPlayer.Character
+	if not localCharacter or not localCharacter:FindFirstChild("HumanoidRootPart") then return nil end
+	local localRoot = localCharacter.HumanoidRootPart
 
--- Функция для создания внутренней страницы под вкладку
-local function createPage(name)
-	local page = Instance.new("Frame")
-	page.Name = name .. "Page"
-	page.Size = UDim2.new(1, 0, 1, 0)
-	page.BackgroundTransparency = 1
-	page.Visible = false
-	page.Parent = ContentFrame
-	
-	-- Заголовок внутри страницы (временная заглушка)
-	local placeholder = Instance.new("TextLabel")
-	placeholder.Size = UDim2.new(1, 0, 0, 30)
-	placeholder.BackgroundTransparency = 1
-	placeholder.Text = name .. " Settings"
-	placeholder.TextColor3 = Color3.fromRGB(100, 100, 100)
-	placeholder.TextSize = 16
-	placeholder.Font = Enum.Font.Gotham
-	placeholder.TextXAlignment = Enum.TextXAlignment.Left
-	placeholder.Parent = page
-	
-	return page
-end
-
--- Инициализация вкладок и страниц
-for _, tabName in ipairs(tabs) do
-	buttons[tabName] = createTabButton(tabName)
-	pages[tabName] = createPage(tabName)
-end
-
--- Логика переключения между вкладками
-local function switchTab(activeTabName)
-	for name, btn in pairs(buttons) do
-		if name == activeTabName then
-			-- Активная вкладка (яркая)
-			TweenService:Create(btn, TweenInfo.new(0.2), {
-				BackgroundColor3 = Color3.fromRGB(60, 120, 240), -- Красивый синий акцент
-				TextColor3 = Color3.fromRGB(255, 255, 255)
-			}):Play()
-			pages[name].Visible = true
-		else
-			-- Неактивные вкладки (темные)
-			TweenService:Create(btn, TweenInfo.new(0.2), {
-				BackgroundColor3 = Color3.fromRGB(35, 35, 35),
-				TextColor3 = Color3.fromRGB(150, 150, 150)
-			}):Play()
-			pages[name].Visible = false
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer and player.Team ~= LocalPlayer.Team then
+			local character = player.Character
+			if character and character:FindFirstChild(TARGET_PART) and character:FindFirstChild("Humanoid") then
+				if character.Humanoid.Health > 0 then
+					local distance = (character[TARGET_PART].Position - localRoot.Position).Magnitude
+					if distance < maxDistance then
+						maxDistance = distance
+						closestTarget = character[TARGET_PART]
+					end
+				end
+			end
 		end
 	end
+	return closestTarget
 end
 
--- Подключаем клики к кнопкам
-for name, btn in pairs(buttons) do
-	btn.MouseButton1Click:Connect(function()
-		switchTab(name)
-	end)
-end
+-- Логика удержания клавиши аима
+local isKeyHeld = false
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+	if input.KeyCode == AIM_KEY then isKeyHeld = true end
+end)
 
--- Открываем первую вкладку по умолчанию
-switchTab("Aim")
+UserInputService.InputEnded:Connect(function(input)
+	if input.KeyCode == AIM_KEY then isKeyHeld = false end
+end)
+
+-- Главный цикл аима
+RunService.RenderStepped:Connect(function()
+	if aimbotEnabled and isKeyHeld then
+		local target = getClosestEnemy()
+		if target then
+			Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Position)
+		end
+	end
+end)
+
+-- Свернуть/развернуть меню на клавишу Insert
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if not gameProcessed and input.KeyCode == Enum.KeyCode.Insert then
+		MainFrame.Visible = not MainFrame.Visible
+	end
+end)
