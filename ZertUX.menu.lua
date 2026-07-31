@@ -1,5 +1,5 @@
 -- =====================================================
---  Zertyx Menu (ESP, Health Bar, Third Person) – ПЕРВАЯ ВЕРСИЯ
+--  Zertyx Menu (с отладкой ESP)
 -- =====================================================
 
 local player = game:GetService("Players").LocalPlayer
@@ -12,19 +12,6 @@ local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local Camera = workspace.CurrentCamera
 local Players = game:GetService("Players")
-local SoundService = game:GetService("SoundService")
-
--- ============================================================
---  ЗВУК
--- ============================================================
-local clickSound = Instance.new("Sound")
-clickSound.SoundId = "rbxassetid://9120379486"
-clickSound.Volume = 0.5
-clickSound.Parent = SoundService
-
-local function playClickSound()
-    clickSound:Play()
-end
 
 -- ============================================================
 --  ОСНОВНОЕ МЕНЮ
@@ -164,75 +151,36 @@ rightLabelAim.TextYAlignment = Enum.TextYAlignment.Center
 rightLabelAim.Parent = rightHalfAim
 
 -- ============================================================
---  ВКЛАДКА ESP (с чекбоксами, Health Bar, Third Person)
+--  ВКЛАДКА ESP (с отладкой)
 -- ============================================================
 local espPage = pages["Esp"]
 local espEnabled = false
 local boxEnabled = false
-local healthBarEnabled = false
-local thirdPersonEnabled = false
 
--- Хранилище объектов ESP
 local espObjects = {}
-
--- Проверка Drawing API
+local hue = 0
 local hasDrawing = pcall(function() return Drawing end) and Drawing ~= nil
 
--- Функция для поиска корневой части
-local function getRootPart(character)
-    if not character then return nil end
-    local root = character:FindFirstChild("HumanoidRootPart")
-    if root then return root end
-    root = character:FindFirstChild("RootPart")
-    if root then return root end
-    root = character:FindFirstChild("UpperTorso")
-    if root then return root end
-    root = character:FindFirstChild("Torso")
-    return root
-end
-
--- Проверка врага
+-- Упрощённая проверка врага
 local function isEnemy(plr)
     if plr == player then return false end
     if not plr.Character then return false end
     local humanoid = plr.Character:FindFirstChild("Humanoid")
-    if not humanoid then
-        return true
-    end
-    if humanoid.Health <= 0 then return false end
-    if player.Team and plr.Team and player.Team == plr.Team then
-        return false
-    end
-    if player.TeamColor and plr.TeamColor and player.TeamColor == plr.TeamColor then
-        return false
-    end
+    if not humanoid or humanoid.Health <= 0 then return false end
+    -- Игнорируем команды для теста
     return true
 end
 
--- Очистка ESP
-local function clearESP()
-    for _, data in pairs(espObjects) do
-        if data.highlight then data.highlight:Destroy() end
-        if data.boxLines then
-            for _, line in pairs(data.boxLines) do
-                line:Remove()
-            end
-        end
-        if data.healthBar then
-            data.healthBar:Destroy()
-        end
-    end
-    espObjects = {}
+local function getRootPart(character)
+    if not character then return nil end
+    return character:FindFirstChild("HumanoidRootPart") or character:FindFirstChild("RootPart") or character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso")
 end
 
--- Переменная для динамичного цвета
-local hue = 0
-
--- Основной цикл обновления ESP и Health Bar
-RunService.RenderStepped:Connect(function()
+local function updateESP()
     hue = (hue + 0.002) % 1
     local dynamicColor = Color3.fromHSV(hue, 0.8, 1)
 
+    -- Удаляем объекты для невалидных игроков
     for plr, data in pairs(espObjects) do
         if not plr or not plr.Parent or not isEnemy(plr) or not plr.Character then
             if data.highlight then data.highlight:Destroy() end
@@ -240,9 +188,6 @@ RunService.RenderStepped:Connect(function()
                 for _, line in pairs(data.boxLines) do
                     line:Remove()
                 end
-            end
-            if data.healthBar then
-                data.healthBar:Destroy()
             end
             espObjects[plr] = nil
         end
@@ -276,6 +221,7 @@ RunService.RenderStepped:Connect(function()
                 highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
                 highlight.Parent = character
                 data.highlight = highlight
+                print("✅ Highlight создан для", plr.Name)
             else
                 data.highlight.FillColor = dynamicColor
                 data.highlight.OutlineColor = dynamicColor
@@ -283,6 +229,7 @@ RunService.RenderStepped:Connect(function()
         else
             if data.highlight then
                 data.highlight:Destroy()
+                print("❌ Highlight удалён для", plr.Name, "(ESP выключен)")
                 data.highlight = nil
             end
         end
@@ -299,7 +246,9 @@ RunService.RenderStepped:Connect(function()
                     line.Visible = false
                     table.insert(data.boxLines, line)
                 end
+                print("✅ 2D Box создан для", plr.Name)
             end
+            -- Обновляем позиции
             local headPos = head.Position
             local rootPos = rootPart.Position
             local height = (headPos - rootPos).Magnitude
@@ -349,83 +298,18 @@ RunService.RenderStepped:Connect(function()
                 for _, line in pairs(data.boxLines) do
                     line:Remove()
                 end
+                print("❌ 2D Box удалён для", plr.Name, "(Box выключен)")
                 data.boxLines = nil
             end
         end
-
-        -- Health Bar
-        if healthBarEnabled then
-            if not data.healthBar then
-                local billboard = Instance.new("BillboardGui")
-                billboard.Size = UDim2.new(0, 80, 0, 20)
-                billboard.Adornee = head
-                billboard.StudsOffset = Vector3.new(0, 2.5, 0)
-                billboard.AlwaysOnTop = true
-                billboard.Parent = character
-
-                local barFrame = Instance.new("Frame")
-                barFrame.Size = UDim2.new(1, 0, 1, 0)
-                barFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-                barFrame.BackgroundTransparency = 0.3
-                barFrame.BorderSizePixel = 0
-                barFrame.Parent = billboard
-
-                local fill = Instance.new("Frame")
-                fill.Size = UDim2.new(1, 0, 1, 0)
-                fill.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
-                fill.BackgroundTransparency = 0
-                fill.BorderSizePixel = 0
-                fill.Parent = barFrame
-
-                local label = Instance.new("TextLabel")
-                label.Size = UDim2.new(1, 0, 1, 0)
-                label.BackgroundTransparency = 1
-                label.Text = ""
-                label.TextColor3 = Color3.fromRGB(255, 255, 255)
-                label.TextSize = 12
-                label.Font = Enum.Font.GothamBold
-                label.TextXAlignment = Enum.TextXAlignment.Center
-                label.TextYAlignment = Enum.TextYAlignment.Center
-                label.Parent = billboard
-
-                data.healthBar = billboard
-                data.healthFill = fill
-                data.healthLabel = label
-            end
-
-            local health = humanoid.Health
-            local maxHealth = humanoid.MaxHealth
-            local percent = math.clamp(health / maxHealth, 0, 1)
-            data.healthFill.Size = UDim2.new(percent, 0, 1, 0)
-            data.healthFill.BackgroundColor3 = Color3.fromRGB(255 * (1 - percent), 255 * percent, 0)
-            data.healthLabel.Text = math.round(health) .. "/" .. math.round(maxHealth)
-        else
-            if data.healthBar then
-                data.healthBar:Destroy()
-                data.healthBar = nil
-                data.healthFill = nil
-                data.healthLabel = nil
-            end
-        end
     end
-end)
+end
 
--- Third Person
-local thirdPersonOffset = Vector3.new(0, 3, -8)
-
-RunService.RenderStepped:Connect(function()
-    if not thirdPersonEnabled then return end
-    local character = player.Character
-    if not character then return end
-    local root = character:FindFirstChild("HumanoidRootPart")
-    if not root then return end
-    local camPos = root.Position + thirdPersonOffset
-    local lookAt = root.Position + Vector3.new(0, 2, 0)
-    Camera.CFrame = CFrame.new(camPos, lookAt)
-end)
+-- Запускаем обновление в RenderStepped
+RunService.RenderStepped:Connect(updateESP)
 
 -- ============================================================
---  ИНТЕРФЕЙС ВКЛАДКИ ESP (чекбоксы)
+--  ИНТЕРФЕЙС ВКЛАДКИ ESP (чекбоксы с отладкой)
 -- ============================================================
 local espPage = pages["Esp"]
 
@@ -443,7 +327,6 @@ leftHalfEsp.Position = UDim2.new(0, 5, 0, 0)
 leftHalfEsp.BackgroundTransparency = 1
 leftHalfEsp.Parent = espPage
 
--- Функция создания чекбокса
 local function createCheckbox(parent, text, yPos, defaultValue, callback)
     local row = Instance.new("Frame")
     row.Size = UDim2.new(1, 0, 0, 26)
@@ -495,7 +378,7 @@ local function createCheckbox(parent, text, yPos, defaultValue, callback)
         checkbox.Text = state and "✓" or ""
         checkbox.BackgroundColor3 = state and Color3.fromRGB(0, 180, 0) or Color3.fromRGB(40, 40, 45)
         callback(state)
-        playClickSound()
+        print("🔘 Чекбокс '" .. text .. "' изменён:", state)
     end)
 
     if defaultValue then
@@ -505,21 +388,15 @@ local function createCheckbox(parent, text, yPos, defaultValue, callback)
     return checkbox
 end
 
--- Чекбоксы
+-- Создаём чекбоксы с отладкой
 createCheckbox(leftHalfEsp, "ESP", 10, false, function(state)
     espEnabled = state
+    print("📌 espEnabled =", espEnabled)
 end)
 
 createCheckbox(leftHalfEsp, "2D Box", 40, false, function(state)
     boxEnabled = state
-end)
-
-createCheckbox(leftHalfEsp, "Health Bar", 70, false, function(state)
-    healthBarEnabled = state
-end)
-
-createCheckbox(leftHalfEsp, "Third Person", 100, false, function(state)
-    thirdPersonEnabled = state
+    print("📌 boxEnabled =", boxEnabled)
 end)
 
 -- Правая половина
@@ -595,8 +472,6 @@ for i, name in ipairs(tabNames) do
     tabButtons[name] = btn
 
     btn.MouseButton1Click:Connect(function()
-        playClickSound()
-
         for pageName, page in pairs(pages) do
             if pageName == name then
                 page.Visible = true
@@ -630,4 +505,4 @@ tabButtons["Aim"].BackgroundColor3 = Color3.fromRGB(60, 60, 70)
 tabButtons["Aim"].BackgroundTransparency = 0.1
 tabButtons["Aim"].TextColor3 = Color3.fromRGB(255, 255, 255)
 
-print("✅ Zertyx Menu (ESP, Health Bar, Third Person) загружен!")
+print("✅ Zertyx Menu с отладкой загружен!")
