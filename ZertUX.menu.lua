@@ -1,5 +1,6 @@
 -- Zertyx Menu для BloxStrike (Roblox)
 -- Размер: 640x420, белое меню, серый выделенный хедер
+-- Чекбоксы вместо кнопок, без кнопки X
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
@@ -20,7 +21,7 @@ mainFrame.BorderSizePixel = 0
 mainFrame.ClipsDescendants = true
 mainFrame.Parent = screenGui
 
--- Тень (для красоты)
+-- Тень
 local shadow = Instance.new("Frame")
 shadow.Size = UDim2.new(1, 10, 1, 10)
 shadow.Position = UDim2.new(0, -5, 0, -5)
@@ -33,7 +34,7 @@ shadow.Parent = mainFrame
 local header = Instance.new("Frame")
 header.Size = UDim2.new(1, 0, 0, 40)
 header.Position = UDim2.new(0, 0, 0, 0)
-header.BackgroundColor3 = Color3.fromRGB(180, 180, 180) -- Серый цвет
+header.BackgroundColor3 = Color3.fromRGB(180, 180, 180)
 header.BorderSizePixel = 0
 header.Parent = mainFrame
 
@@ -52,23 +53,6 @@ titleLabel.TextYAlignment = Enum.TextYAlignment.Center
 titleLabel.Padding = UDim.new(0, 15)
 titleLabel.Parent = header
 
--- Кнопка закрытия (X)
-local closeButton = Instance.new("TextButton")
-closeButton.Size = UDim2.new(0, 30, 0, 30)
-closeButton.Position = UDim2.new(1, -35, 0.5, -15)
-closeButton.BackgroundColor3 = Color3.fromRGB(200, 70, 70)
-closeButton.BackgroundTransparency = 0.8
-closeButton.Text = "X"
-closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-closeButton.TextSize = 16
-closeButton.Font = Enum.Font.GothamBold
-closeButton.BorderSizePixel = 0
-closeButton.Parent = header
-
-closeButton.MouseButton1Click:Connect(function()
-    screenGui:Destroy()
-end)
-
 -- Контент меню (скроллируемый)
 local contentFrame = Instance.new("Frame")
 contentFrame.Size = UDim2.new(1, -20, 1, -60)
@@ -76,63 +60,110 @@ contentFrame.Position = UDim2.new(0, 10, 0, 50)
 contentFrame.BackgroundTransparency = 1
 contentFrame.Parent = mainFrame
 
--- Список функций (пример)
+-- Список функций
 local functions = {
-    {"Бесконечные патроны", false},
-    {"Быстрая перезарядка", false},
-    {"Магнит на пули", false},
-    {"Аимбот (мягкий)", false},
-    {"ESP игроков", false},
-    {"Бессмертие", false},
-    {"Скорость x2", false},
-    {"Прыжок x3", false}
+    "Бесконечные патроны",
+    "Быстрая перезарядка",
+    "Магнит на пули",
+    "Аимбот (мягкий)",
+    "ESP игроков",
+    "Бессмертие",
+    "Скорость x2",
+    "Прыжок x3"
 }
 
 local yOffset = 0
-local spacing = 35
+local spacing = 38
 
-for i, v in ipairs(functions) do
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, 0, 0, 30)
-    btn.Position = UDim2.new(0, 0, 0, yOffset)
-    btn.BackgroundColor3 = Color3.fromRGB(240, 240, 240)
-    btn.BackgroundTransparency = 0
-    btn.Text = v[1] .. " [OFF]"
-    btn.TextColor3 = Color3.fromRGB(50, 50, 50)
-    btn.TextSize = 16
-    btn.Font = Enum.Font.Gotham
-    btn.TextXAlignment = Enum.TextXAlignment.Left
-    btn.TextYAlignment = Enum.TextYAlignment.Center
-    btn.BorderSizePixel = 1
-    btn.BorderColor3 = Color3.fromRGB(200, 200, 200)
-    btn.Padding = UDim.new(0, 10)
-    btn.Parent = contentFrame
+for i, funcName in ipairs(functions) do
+    -- Контейнер для чекбокса
+    local container = Instance.new("Frame")
+    container.Size = UDim2.new(1, 0, 0, 32)
+    container.Position = UDim2.new(0, 0, 0, yOffset)
+    container.BackgroundTransparency = 1
+    container.Parent = contentFrame
     
-    local isActive = false
+    -- Сам чекбокс (квадрат)
+    local checkbox = Instance.new("Frame")
+    checkbox.Size = UDim2.new(0, 22, 0, 22)
+    checkbox.Position = UDim2.new(0, 5, 0.5, -11)
+    checkbox.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    checkbox.BackgroundTransparency = 0
+    checkbox.BorderSizePixel = 2
+    checkbox.BorderColor3 = Color3.fromRGB(150, 150, 150)
+    checkbox.Parent = container
     
-    btn.MouseButton1Click:Connect(function()
-        isActive = not isActive
-        if isActive then
-            btn.Text = v[1] .. " [ON]"
-            btn.BackgroundColor3 = Color3.fromRGB(200, 230, 200)
+    -- Галочка внутри чекбокса
+    local checkmark = Instance.new("Frame")
+    checkmark.Size = UDim2.new(0.7, 0, 0.7, 0)
+    checkmark.Position = UDim2.new(0.15, 0, 0.15, 0)
+    checkmark.BackgroundColor3 = Color3.fromRGB(70, 200, 70)
+    checkmark.BackgroundTransparency = 1
+    checkmark.BorderSizePixel = 0
+    checkmark.Parent = checkbox
+    
+    -- Текст функции
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, -35, 1, 0)
+    label.Position = UDim2.new(0, 35, 0, 0)
+    label.BackgroundTransparency = 1
+    label.Text = funcName
+    label.TextColor3 = Color3.fromRGB(50, 50, 50)
+    label.TextSize = 17
+    label.Font = Enum.Font.Gotham
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.TextYAlignment = Enum.TextYAlignment.Center
+    label.Parent = container
+    
+    -- Кнопка-невидимка поверх всего для клика
+    local clicker = Instance.new("TextButton")
+    clicker.Size = UDim2.new(1, 0, 1, 0)
+    clicker.Position = UDim2.new(0, 0, 0, 0)
+    clicker.BackgroundTransparency = 1
+    clicker.Text = ""
+    clicker.Parent = container
+    
+    local isChecked = false
+    
+    -- Функция обновления состояния
+    local function updateCheckbox()
+        if isChecked then
+            checkmark.BackgroundTransparency = 0
+            checkbox.BorderColor3 = Color3.fromRGB(70, 200, 70)
         else
-            btn.Text = v[1] .. " [OFF]"
-            btn.BackgroundColor3 = Color3.fromRGB(240, 240, 240)
+            checkmark.BackgroundTransparency = 1
+            checkbox.BorderColor3 = Color3.fromRGB(150, 150, 150)
+        end
+    end
+    
+    -- Обработка клика
+    clicker.MouseButton1Click:Connect(function()
+        isChecked = not isChecked
+        updateCheckbox()
+        
+        -- Здесь можно добавить реальный функционал
+        if isChecked then
+            print(funcName .. " включён ✅")
+        else
+            print(funcName .. " выключен ❌")
         end
     end)
     
     -- Эффект наведения
-    btn.MouseEnter:Connect(function()
-        btn.BackgroundColor3 = Color3.fromRGB(220, 220, 220)
-    end)
-    
-    btn.MouseLeave:Connect(function()
-        if isActive then
-            btn.BackgroundColor3 = Color3.fromRGB(200, 230, 200)
-        else
-            btn.BackgroundColor3 = Color3.fromRGB(240, 240, 240)
+    local function onHover()
+        if not isChecked then
+            checkbox.BackgroundColor3 = Color3.fromRGB(240, 240, 240)
         end
-    end)
+    end
+    
+    local function onLeave()
+        checkbox.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    end
+    
+    clicker.MouseEnter:Connect(onHover)
+    clicker.MouseLeave:Connect(onLeave)
+    container.MouseEnter:Connect(onHover)
+    container.MouseLeave:Connect(onLeave)
     
     yOffset = yOffset + spacing
 end
@@ -163,5 +194,12 @@ game:GetService("UserInputService").InputChanged:Connect(function(input)
         local deltaX = input.Position.X - dragStartX
         local deltaY = input.Position.Y - dragStartY
         mainFrame.Position = UDim2.new(0.5, frameStartX + deltaX, 0.5, frameStartY + deltaY)
+    end
+end)
+
+-- Закрытие по Escape
+game:GetService("UserInputService").InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.Escape then
+        screenGui:Destroy()
     end
 end)
