@@ -1,5 +1,5 @@
 -- =====================================================
---  Zertyx Menu (ESP с принудительным обновлением)
+--  Zertyx Menu (ESP + Health Bar)
 -- =====================================================
 
 local player = game:GetService("Players").LocalPlayer
@@ -151,11 +151,12 @@ rightLabelAim.TextYAlignment = Enum.TextYAlignment.Center
 rightLabelAim.Parent = rightHalfAim
 
 -- ============================================================
---  ВКЛАДКА ESP (принудительное обновление)
+--  ВКЛАДКА ESP (ESP + Health Bar)
 -- ============================================================
 local espPage = pages["Esp"]
 local espEnabled = false
 local boxEnabled = false
+local healthEnabled = false
 
 local espObjects = {}
 local hue = 0
@@ -168,7 +169,6 @@ end
 
 -- Функция полной перезагрузки ESP
 local function fullRefreshESP()
-    -- Удаляем все объекты
     for plr, data in pairs(espObjects) do
         if data.highlight then data.highlight:Destroy() end
         if data.boxLines then
@@ -176,12 +176,14 @@ local function fullRefreshESP()
                 line:Remove()
             end
         end
+        if data.healthBar then
+            data.healthBar:Destroy()
+        end
     end
     espObjects = {}
-    print("🔄 ESP полностью обновлён")
 end
 
--- Основной цикл обновления (каждый кадр)
+-- Основной цикл обновления
 local function updateESP()
     hue = (hue + 0.002) % 1
     local dynamicColor = Color3.fromHSV(hue, 0.8, 1)
@@ -195,6 +197,9 @@ local function updateESP()
                     for _, line in pairs(data.boxLines) do
                         line:Remove()
                     end
+                end
+                if data.healthBar then
+                    data.healthBar:Destroy()
                 end
                 espObjects[plr] = nil
             end
@@ -210,6 +215,27 @@ local function updateESP()
                     for _, line in pairs(data.boxLines) do
                         line:Remove()
                     end
+                end
+                if data.healthBar then
+                    data.healthBar:Destroy()
+                end
+                espObjects[plr] = nil
+            end
+            continue
+        end
+
+        local humanoid = character:FindFirstChild("Humanoid")
+        if not humanoid or humanoid.Health <= 0 then
+            local data = espObjects[plr]
+            if data then
+                if data.highlight then data.highlight:Destroy() end
+                if data.boxLines then
+                    for _, line in pairs(data.boxLines) do
+                        line:Remove()
+                    end
+                end
+                if data.healthBar then
+                    data.healthBar:Destroy()
                 end
                 espObjects[plr] = nil
             end
@@ -227,6 +253,9 @@ local function updateESP()
                         line:Remove()
                     end
                 end
+                if data.healthBar then
+                    data.healthBar:Destroy()
+                end
                 espObjects[plr] = nil
             end
             continue
@@ -240,6 +269,9 @@ local function updateESP()
                     line:Remove()
                 end
             end
+            if data.healthBar then
+                data.healthBar:Destroy()
+            end
             espObjects[plr] = nil
             data = nil
         end
@@ -249,7 +281,7 @@ local function updateESP()
         end
         data = espObjects[plr]
 
-        -- Highlight
+        -- === Highlight ===
         if espEnabled then
             if not data.highlight then
                 local highlight = Instance.new("Highlight")
@@ -272,7 +304,7 @@ local function updateESP()
             end
         end
 
-        -- 2D Box
+        -- === 2D Box ===
         if boxEnabled and hasDrawing then
             if not data.boxLines then
                 data.boxLines = {}
@@ -337,6 +369,61 @@ local function updateESP()
                 data.boxLines = nil
             end
         end
+
+        -- === Health Bar (КРАСНЫЙ) ===
+        if healthEnabled then
+            if not data.healthBar then
+                local billboard = Instance.new("BillboardGui")
+                billboard.Size = UDim2.new(0, 80, 0, 20)
+                billboard.Adornee = head
+                billboard.StudsOffset = Vector3.new(0, 2.5, 0)
+                billboard.AlwaysOnTop = true
+                billboard.Parent = character
+
+                local barFrame = Instance.new("Frame")
+                barFrame.Size = UDim2.new(1, 0, 1, 0)
+                barFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+                barFrame.BackgroundTransparency = 0.3
+                barFrame.BorderSizePixel = 0
+                barFrame.Parent = billboard
+
+                local fill = Instance.new("Frame")
+                fill.Size = UDim2.new(1, 0, 1, 0)
+                fill.BackgroundColor3 = Color3.fromRGB(255, 0, 0) -- КРАСНЫЙ
+                fill.BackgroundTransparency = 0
+                fill.BorderSizePixel = 0
+                fill.Parent = barFrame
+
+                local label = Instance.new("TextLabel")
+                label.Size = UDim2.new(1, 0, 1, 0)
+                label.BackgroundTransparency = 1
+                label.Text = ""
+                label.TextColor3 = Color3.fromRGB(255, 255, 255)
+                label.TextSize = 12
+                label.Font = Enum.Font.GothamBold
+                label.TextXAlignment = Enum.TextXAlignment.Center
+                label.TextYAlignment = Enum.TextYAlignment.Center
+                label.Parent = billboard
+
+                data.healthBar = billboard
+                data.healthFill = fill
+                data.healthLabel = label
+            end
+
+            local health = humanoid.Health
+            local maxHealth = humanoid.MaxHealth
+            local percent = math.clamp(health / maxHealth, 0, 1)
+            data.healthFill.Size = UDim2.new(percent, 0, 1, 0)
+            -- Оставляем красный всегда (не меняем цвет)
+            data.healthLabel.Text = math.round(health) .. "/" .. math.round(maxHealth)
+        else
+            if data.healthBar then
+                data.healthBar:Destroy()
+                data.healthBar = nil
+                data.healthFill = nil
+                data.healthLabel = nil
+            end
+        end
     end
 end
 
@@ -352,7 +439,7 @@ task.spawn(function()
 end)
 
 -- ============================================================
---  ИНТЕРФЕЙС ВКЛАДКИ ESP
+--  ИНТЕРФЕЙС ВКЛАДКИ ESP (чекбоксы)
 -- ============================================================
 local espPage = pages["Esp"]
 
@@ -421,7 +508,7 @@ local function createCheckbox(parent, text, yPos, defaultValue, callback)
         checkbox.Text = state and "✓" or ""
         checkbox.BackgroundColor3 = state and Color3.fromRGB(0, 180, 0) or Color3.fromRGB(40, 40, 45)
         callback(state)
-        fullRefreshESP() -- Принудительное обновление при клике
+        fullRefreshESP()
     end)
 
     if defaultValue then
@@ -437,6 +524,10 @@ end)
 
 createCheckbox(leftHalfEsp, "2D Box", 40, false, function(state)
     boxEnabled = state
+end)
+
+createCheckbox(leftHalfEsp, "Health Bar", 70, false, function(state)
+    healthEnabled = state
 end)
 
 local rightHalfEsp = Instance.new("Frame")
@@ -544,4 +635,4 @@ tabButtons["Aim"].BackgroundColor3 = Color3.fromRGB(60, 60, 70)
 tabButtons["Aim"].BackgroundTransparency = 0.1
 tabButtons["Aim"].TextColor3 = Color3.fromRGB(255, 255, 255)
 
-print("✅ Zertyx Menu (ESP с принудительным обновлением) загружен!")
+print("✅ Zertyx Menu (ESP + Health Bar) загружен!")
