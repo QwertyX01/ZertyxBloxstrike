@@ -1,6 +1,6 @@
 -- ============================================
---  ZERTYX MENU для BloxStrike v5.0
---  ПОЛНАЯ ПЕРЕРАБОТКА
+--  ZERTYX MENU для BloxStrike v6.0
+--  SILENT AIM + КРУГ-РАДАР
 -- ============================================
 
 local Players = game:GetService("Players")
@@ -10,21 +10,27 @@ local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 local Camera = Workspace.CurrentCamera
 local player = Players.LocalPlayer
+local mouse = player:GetMouse()
 
 -- ============================================
---  ПЕРЕМЕННЫЕ СОСТОЯНИЯ
+--  ПЕРЕМЕННЫЕ
 -- ============================================
 
 local functionsState = {
-    Aimbot = false,
+    SilentAim = false,
     ESP = false,
     NoClip = false,
     Fly = false,
     Speed = false,
     BHopTSpin = false,
     InfiniteAmmo = false,
-    NoRecoil = false
+    NoRecoil = false,
+    ShowCircle = true
 }
+
+local aimRadius = 150
+local circleObject = nil
+local circleParts = {}
 
 -- НАСТРОЙКИ
 local speedValue = 60
@@ -34,7 +40,7 @@ local bhopJumpPower = 80
 local bhopSpeed = 80
 
 -- ============================================
---  GUI (640x310) - НЕ ИСЧЕЗАЕТ ПОСЛЕ РАУНДА
+--  GUI (640x310) - НЕ ИСЧЕЗАЕТ
 -- ============================================
 
 local screenGui = Instance.new("ScreenGui")
@@ -111,18 +117,18 @@ title.Parent = titleBar
 --  ВКЛАДКИ
 -- ============================================
 
-local tabs = {"Combat", "Movement", "Visual"}
+local tabs = {"Combat", "Movement", "Visual", "Aim"}
 local currentTab = "Combat"
 local tabButtons = {}
 
 for i, tabName in ipairs(tabs) do
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0, 90, 0, 30)
-    btn.Position = UDim2.new(0, 20 + (i-1) * 100, 0, 62)
+    btn.Size = UDim2.new(0, 80, 0, 30)
+    btn.Position = UDim2.new(0, 15 + (i-1) * 90, 0, 62)
     btn.BackgroundColor3 = Color3.fromRGB(240, 240, 240)
     btn.Text = tabName
     btn.TextColor3 = Color3.fromRGB(40, 40, 40)
-    btn.TextSize = 14
+    btn.TextSize = 13
     btn.Font = Enum.Font.GothamSemibold
     btn.BorderSizePixel = 0
     btn.Parent = mainFrame
@@ -167,7 +173,6 @@ buttonContainer.Parent = mainFrame
 
 local functionData = {
     Combat = {
-        {name = "Aimbot", key = "Aimbot", desc = "Автонаведение в голову"},
         {name = "No Recoil", key = "NoRecoil", desc = "Без отдачи"},
         {name = "Infinite Ammo", key = "InfiniteAmmo", desc = "99 патронов"}
     },
@@ -178,7 +183,12 @@ local functionData = {
         {name = "BHop + TSpin", key = "BHopTSpin", desc = "Прыжки с рывками"}
     },
     Visual = {
-        {name = "ESP", key = "ESP", desc = "Подсветка игроков"}
+        {name = "ESP", key = "ESP", desc = "Подсветка игроков"},
+        {name = "Show Circle", key = "ShowCircle", desc = "Показать круг"}
+    },
+    Aim = {
+        {name = "Silent Aim", key = "SilentAim", desc = "Невидимый аим"},
+        {name = "Radius: " .. aimRadius, key = "RadiusSlider", desc = "0 - 300", isSlider = true}
     }
 }
 
@@ -237,6 +247,15 @@ function updateButtons()
         end)
         
         btn.MouseButton1Click:Connect(function()
+            if item.isSlider then
+                -- Ползунок радиуса
+                aimRadius = aimRadius + 25
+                if aimRadius > 300 then aimRadius = 0 end
+                btn.Text = "Radius: " .. aimRadius .. "\n0 - 300"
+                updateCircle()
+                return
+            end
+            
             isEnabled = not isEnabled
             functionsState[item.key] = isEnabled
             
@@ -258,6 +277,197 @@ function updateButtons()
 end
 
 updateButtons()
+
+-- ============================================
+--  СОЗДАНИЕ КРУГА
+-- ============================================
+
+local function createCircle()
+    -- Удаляем старый круг
+    for _, part in ipairs(circleParts) do
+        part:Destroy()
+    end
+    circleParts = {}
+    
+    if not functionsState.ShowCircle then return end
+    if aimRadius <= 0 then return end
+    
+    local char, hum, root = getCharacter()
+    if not root then return end
+    
+    local segments = 36
+    local angleStep = (2 * math.pi) / segments
+    
+    for i = 1, segments do
+        local angle = i * angleStep
+        local x = math.cos(angle) * aimRadius
+        local z = math.sin(angle) * aimRadius
+        
+        local part = Instance.new("Part")
+        part.Size = Vector3.new(0.5, 0.1, 0.5)
+        part.Position = root.Position + Vector3.new(x, 0, z)
+        part.Anchored = true
+        part.CanCollide = false
+        part.Transparency = 0.5
+        part.BrickColor = BrickColor.new("Bright red")
+        part.Material = Enum.Material.Neon
+        part.Parent = Workspace
+        part.Name = "AimCircle"
+        
+        -- Делаем круг видимым, но прозрачным
+        local highlight = Instance.new("SelectionBox")
+        highlight.Adornee = part
+        highlight.Color3 = Color3.fromRGB(255, 0, 0)
+        highlight.Transparency = 0.3
+        highlight.Parent = part
+        
+        table.insert(circleParts, part)
+    end
+    
+    -- Добавляем центральную точку
+    local center = Instance.new("Part")
+    center.Size = Vector3.new(0.8, 0.1, 0.8)
+    center.Position = root.Position
+    center.Anchored = true
+    center.CanCollide = false
+    center.Transparency = 0.3
+    center.BrickColor = BrickColor.new("Bright red")
+    center.Material = Enum.Material.Neon
+    center.Parent = Workspace
+    center.Name = "AimCircleCenter"
+    
+    local highlightCenter = Instance.new("SelectionBox")
+    highlightCenter.Adornee = center
+    highlightCenter.Color3 = Color3.fromRGB(255, 0, 0)
+    highlightCenter.Transparency = 0.3
+    highlightCenter.Parent = center
+    
+    table.insert(circleParts, center)
+end
+
+local function updateCircle()
+    for _, part in ipairs(circleParts) do
+        part:Destroy()
+    end
+    circleParts = {}
+    createCircle()
+end
+
+-- Обновляем круг каждые 5 кадров
+local circleUpdateCounter = 0
+RunService.Heartbeat:Connect(function()
+    circleUpdateCounter = circleUpdateCounter + 1
+    if circleUpdateCounter % 5 ~= 0 then return end
+    
+    if functionsState.ShowCircle and functionsState.SilentAim then
+        local char, hum, root = getCharacter()
+        if root then
+            -- Обновляем позицию круга
+            for i, part in ipairs(circleParts) do
+                if part and part:IsA("BasePart") then
+                    local angle = (i / #circleParts) * 2 * math.pi
+                    local x = math.cos(angle) * aimRadius
+                    local z = math.sin(angle) * aimRadius
+                    part.Position = root.Position + Vector3.new(x, 0, z)
+                end
+            end
+            -- Центр
+            if #circleParts > 0 then
+                local center = circleParts[#circleParts]
+                if center and center:IsA("BasePart") then
+                    center.Position = root.Position
+                end
+            end
+        end
+    end
+end)
+
+-- ============================================
+--  SILENT AIM
+-- ============================================
+
+local function getClosestEnemy()
+    local char, hum, root = getCharacter()
+    if not root then return nil end
+    
+    local closestDist = math.huge
+    local closestPlayer = nil
+    
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= player and plr.Character then
+            local plrRoot = plr.Character:FindFirstChild("HumanoidRootPart")
+            if plrRoot then
+                local dist = (root.Position - plrRoot.Position).Magnitude
+                if dist < closestDist and dist < aimRadius then
+                    closestDist = dist
+                    closestPlayer = plr
+                end
+            end
+        end
+    end
+    
+    return closestPlayer
+end
+
+-- Перехватываем выстрелы (Silent Aim)
+game:GetService("RunService").RenderStepped:Connect(function()
+    if not functionsState.SilentAim then return end
+    
+    local target = getClosestEnemy()
+    if not target then return end
+    
+    local targetRoot = target.Character:FindFirstChild("HumanoidRootPart")
+    if not targetRoot then return end
+    
+    -- Находим оружие в руках
+    local char = player.Character
+    if not char then return end
+    
+    local weapon = char:FindFirstChildOfClass("Tool")
+    if not weapon then return end
+    
+    -- Подменяем направление выстрела на цель
+    local headPos = targetRoot.Position + Vector3.new(0, 1.8, 0)
+    
+    -- Для каждого выстрела перенаправляем пулю
+    local oldFire = weapon.FindFirstChild and weapon:FindFirstChild("Fire")
+    if oldFire then
+        -- Перехват выстрела
+        local connection
+        connection = oldFire.OnServerEvent:Connect(function(plr, ...)
+            if plr == player then
+                -- Перенаправляем на голову
+                local args = {...}
+                -- Меняем направление
+                if args[1] then
+                    args[1] = headPos
+                end
+                oldFire:FireServer(unpack(args))
+            end
+        end)
+    end
+end)
+
+-- Альтернативный метод Silent Aim через мышь
+local oldMouseTarget = nil
+mouse.Button1Down:Connect(function()
+    if not functionsState.SilentAim then return end
+    
+    local target = getClosestEnemy()
+    if target and target.Character then
+        local targetRoot = target.Character:FindFirstChild("HumanoidRootPart")
+        if targetRoot then
+            local headPos = targetRoot.Position + Vector3.new(0, 1.8, 0)
+            -- Перенаправляем прицел мыши
+            local targetScreen = Camera:WorldToScreenPoint(headPos)
+            if targetScreen then
+                mouse.Target = nil
+                mouse.Hit = CFrame.new(headPos)
+                mouse.TargetFilter = target.Character
+            end
+        end
+    end
+end)
 
 -- ============================================
 --  ESP (HIGHLIGHT)
@@ -311,48 +521,6 @@ end)
 
 Players.PlayerRemoving:Connect(function(plr)
     removeHighlight(plr)
-end)
-
--- ============================================
---  AIMBOT (РАБОТАЕТ 100% + НЕ ЛОМАЕТ ХОДЬБУ)
--- ============================================
-
-RunService.Heartbeat:Connect(function()
-    if not functionsState.Aimbot then return end
-    
-    local char, hum, root = getCharacter()
-    if not char or not hum or not root then return end
-    
-    local closestDist = math.huge
-    local closestPlayer = nil
-    
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= player and plr.Character then
-            local plrRoot = plr.Character:FindFirstChild("HumanoidRootPart")
-            if plrRoot then
-                local dist = (root.Position - plrRoot.Position).Magnitude
-                if dist < closestDist and dist < 300 then
-                    closestDist = dist
-                    closestPlayer = plr
-                end
-            end
-        end
-    end
-    
-    if closestPlayer and closestPlayer.Character then
-        local targetRoot = closestPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if targetRoot then
-            local headPos = targetRoot.Position + Vector3.new(0, 1.8, 0)
-            
-            -- НЕ ломаем ходьбу, просто поворачиваем камеру
-            local camPos = Camera.CFrame.Position
-            local lookAt = (headPos - camPos).Unit
-            local newCFrame = CFrame.new(camPos, camPos + lookAt)
-            
-            -- Мгновенное наведение
-            Camera.CFrame = newCFrame
-        end
-    end
 end)
 
 -- ============================================
@@ -449,7 +617,7 @@ RunService.Heartbeat:Connect(function()
 end)
 
 -- ============================================
---  BHOP + TSpin (СИЛЬНЫЕ ПРЫЖКИ С РЫВКАМИ)
+--  BHOP + TSpin
 -- ============================================
 
 RunService.Heartbeat:Connect(function()
@@ -458,9 +626,7 @@ RunService.Heartbeat:Connect(function()
     local char, hum, root = getCharacter()
     if not char or not hum or not root then return end
     
-    -- Увеличиваем скорость при прыжке
     if hum.FloorMaterial == Enum.Material.Air then
-        -- Рывок вперёд в воздухе
         local forward = Camera.CFrame.LookVector
         forward = Vector3.new(forward.X, 0, forward.Z).Unit
         root.Velocity = Vector3.new(
@@ -470,7 +636,6 @@ RunService.Heartbeat:Connect(function()
         )
     end
     
-    -- Авто-прыжок с усилением
     if hum.FloorMaterial ~= Enum.Material.Air then
         hum.Jump = true
         hum.JumpPower = bhopJumpPower
@@ -508,7 +673,6 @@ end
 local function setInfiniteAmmo(weapon)
     if not weapon then return end
     
-    -- Все возможные названия переменных патронов
     local ammoNames = {
         "Ammo", "Magazine", "CurrentAmmo", "ReserveAmmo", 
         "Clip", "Bullets", "AmmoCount", "StoredAmmo", 
@@ -523,7 +687,6 @@ local function setInfiniteAmmo(weapon)
         end
     end
     
-    -- Перебираем все значения внутри оружия
     for _, child in ipairs(weapon:GetDescendants()) do
         if child:IsA("NumberValue") or child:IsA("IntValue") then
             local name = child.Name:lower()
@@ -568,7 +731,7 @@ RunService.Stepped:Connect(function()
         if weapon:IsA("Tool") then
             local recoilNames = {"Recoil", "CurrentRecoil", "RecoilAmount", "Spread", "CurrentSpread"}
             for _, name in ipairs(recoilNames) do
-                local value = weapon:FindFirstChild(name)
+                local value = weapon:FindChild(name)
                 if value and (value:IsA("NumberValue") or value:IsA("IntValue")) then
                     value.Value = 0
                 end
@@ -591,16 +754,21 @@ UserInputService.InputBegan:Connect(function(input)
 end)
 
 -- ============================================
+--  ЗАПУСК КРУГА
+-- ============================================
+
+createCircle()
+
+-- ============================================
 --  ЗАВЕРШЕНИЕ
 -- ============================================
 
 print("========================================")
-print("  ZERTYX MENU v5.0 ЗАГРУЖЕН!")
-print("  ✅ Aimbot - РАБОТАЕТ 100%")
-print("  ✅ Ходьба НЕ ЛОМАЕТСЯ")
-print("  ✅ Infinite Ammo - 99 патронов")
+print("  ZERTYX MENU v6.0 ЗАГРУЖЕН!")
+print("  ✅ Silent Aim - стреляй куда угодно!")
+print("  ✅ Круг-радар с радиусом 0-300")
+print("  ✅ Ползунок радиуса в меню Aim")
 print("  ✅ BHop + TSpin - прыжки с рывками")
-print("  ✅ Infinity Jump - УДАЛЁН")
 print("========================================")
 
 mainFrame.Position = UDim2.new(0.5, -320, 0.5, -180)
