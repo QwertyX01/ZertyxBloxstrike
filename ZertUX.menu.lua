@@ -1,5 +1,5 @@
 -- =====================================================
---  Zertyx Menu (ESP + Health Bar)
+--  Zertyx Menu (ESP + Health Bar, обновление каждую секунду)
 -- =====================================================
 
 local player = game:GetService("Players").LocalPlayer
@@ -151,7 +151,7 @@ rightLabelAim.TextYAlignment = Enum.TextYAlignment.Center
 rightLabelAim.Parent = rightHalfAim
 
 -- ============================================================
---  ВКЛАДКА ESP (ESP + Health Bar)
+--  ВКЛАДКА ESP (ESP + Health Bar с обновлением каждую секунду)
 -- ============================================================
 local espPage = pages["Esp"]
 local espEnabled = false
@@ -167,7 +167,7 @@ local function getRootPart(character)
     return character:FindFirstChild("HumanoidRootPart") or character:FindFirstChild("RootPart") or character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso")
 end
 
--- Функция полной перезагрузки ESP
+-- ПОЛНАЯ ПЕРЕЗАГРУЗКА ВСЕХ ОБЪЕКТОВ
 local function fullRefreshESP()
     for plr, data in pairs(espObjects) do
         if data.highlight then data.highlight:Destroy() end
@@ -183,11 +183,12 @@ local function fullRefreshESP()
     espObjects = {}
 end
 
--- Основной цикл обновления
+-- ОСНОВНОЙ ЦИКЛ ОБНОВЛЕНИЯ (каждый кадр)
 local function updateESP()
     hue = (hue + 0.002) % 1
     local dynamicColor = Color3.fromHSV(hue, 0.8, 1)
 
+    -- Проверяем всех игроков
     for _, plr in pairs(Players:GetPlayers()) do
         if plr == player then
             local data = espObjects[plr]
@@ -261,6 +262,7 @@ local function updateESP()
             continue
         end
 
+        -- Проверяем, изменился ли персонаж
         local data = espObjects[plr]
         if data and data.character ~= character then
             if data.highlight then data.highlight:Destroy() end
@@ -281,7 +283,7 @@ local function updateESP()
         end
         data = espObjects[plr]
 
-        -- === Highlight ===
+        -- === ESP (HIGHLIGHT) ===
         if espEnabled then
             if not data.highlight then
                 local highlight = Instance.new("Highlight")
@@ -304,7 +306,7 @@ local function updateESP()
             end
         end
 
-        -- === 2D Box ===
+        -- === 2D BOX ===
         if boxEnabled and hasDrawing then
             if not data.boxLines then
                 data.boxLines = {}
@@ -370,7 +372,7 @@ local function updateESP()
             end
         end
 
-        -- === Health Bar (КРАСНЫЙ) ===
+        -- === HEALTH BAR (КРАСНЫЙ) ===
         if healthEnabled then
             if not data.healthBar then
                 local billboard = Instance.new("BillboardGui")
@@ -389,7 +391,7 @@ local function updateESP()
 
                 local fill = Instance.new("Frame")
                 fill.Size = UDim2.new(1, 0, 1, 0)
-                fill.BackgroundColor3 = Color3.fromRGB(255, 0, 0) -- КРАСНЫЙ
+                fill.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
                 fill.BackgroundTransparency = 0
                 fill.BorderSizePixel = 0
                 fill.Parent = barFrame
@@ -414,7 +416,6 @@ local function updateESP()
             local maxHealth = humanoid.MaxHealth
             local percent = math.clamp(health / maxHealth, 0, 1)
             data.healthFill.Size = UDim2.new(percent, 0, 1, 0)
-            -- Оставляем красный всегда (не меняем цвет)
             data.healthLabel.Text = math.round(health) .. "/" .. math.round(maxHealth)
         else
             if data.healthBar then
@@ -427,19 +428,19 @@ local function updateESP()
     end
 end
 
--- Запускаем обновление каждый кадр
+-- ЗАПУСКАЕМ ОБНОВЛЕНИЕ КАЖДЫЙ КАДР
 RunService.RenderStepped:Connect(updateESP)
 
--- Принудительное полное обновление каждые 1.5 секунды
+-- ПРИНУДИТЕЛЬНОЕ ПОЛНОЕ ОБНОВЛЕНИЕ КАЖДУЮ СЕКУНДУ
 task.spawn(function()
     while true do
-        task.wait(1.5)
+        task.wait(1)  -- обновление каждую секунду
         fullRefreshESP()
     end
 end)
 
 -- ============================================================
---  ИНТЕРФЕЙС ВКЛАДКИ ESP (чекбоксы)
+--  ИНТЕРФЕЙС ВКЛАДКИ ESP
 -- ============================================================
 local espPage = pages["Esp"]
 
@@ -635,4 +636,4 @@ tabButtons["Aim"].BackgroundColor3 = Color3.fromRGB(60, 60, 70)
 tabButtons["Aim"].BackgroundTransparency = 0.1
 tabButtons["Aim"].TextColor3 = Color3.fromRGB(255, 255, 255)
 
-print("✅ Zertyx Menu (ESP + Health Bar) загружен!")
+print("✅ Zertyx Menu (ESP + Health Bar, обновление каждую секунду) загружен!")
