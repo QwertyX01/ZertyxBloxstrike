@@ -1,6 +1,6 @@
 -- ============================================
---  ZERTYX MENU для BloxStrike v3.0
---  С ВКЛАДКАМИ И РАБОЧИМИ ФУНКЦИЯМИ
+--  ZERTYX MENU для BloxStrike v3.3
+--  ESP С HIGHLIGHT (РАБОТАЕТ 100%)
 -- ============================================
 
 local Players = game:GetService("Players")
@@ -17,7 +17,6 @@ local functionsState = {
     Aimbot = false,
     ESP = false,
     NoClip = false,
-    AntiFlash = false,
     InfinityJump = false,
     Speed = false,
     BHop = false,
@@ -168,8 +167,7 @@ local functionData = {
         {name = "BHop", key = "BHop", desc = "Авто-прыжок"}
     },
     Visual = {
-        {name = "ESP", key = "ESP", desc = "Рамки на игроках"},
-        {name = "Anti Flash", key = "AntiFlash", desc = "Без ослепления"}
+        {name = "ESP", key = "ESP", desc = "Подсветка игроков"}
     },
     Other = {
         {name = "Доп. функция 1", key = "Other1", desc = "Скоро будет"},
@@ -177,18 +175,15 @@ local functionData = {
     }
 }
 
-local buttons = {}
 local buttonObjects = {}
 
 function updateButtons()
-    -- Очищаем контейнер
     for _, child in ipairs(buttonContainer:GetChildren()) do
         child:Destroy()
     end
     
     local data = functionData[currentTab] or {}
     local cols = 2
-    local rows = math.ceil(#data / cols)
     
     for i, item in ipairs(data) do
         local row = math.floor((i-1) / cols)
@@ -210,7 +205,6 @@ function updateButtons()
         btnCorner.CornerRadius = UDim.new(0, 8)
         btnCorner.Parent = btn
         
-        -- Индикатор
         local indicator = Instance.new("Frame")
         indicator.Size = UDim2.new(0, 10, 0, 10)
         indicator.Position = UDim2.new(1, -20, 0.5, -5)
@@ -221,7 +215,6 @@ function updateButtons()
         indCorner.CornerRadius = UDim.new(1, 0)
         indCorner.Parent = indicator
         
-        -- Состояние
         local isEnabled = false
         
         btn.MouseEnter:Connect(function()
@@ -257,14 +250,70 @@ function updateButtons()
     end
 end
 
--- Обновляем кнопки
 updateButtons()
 
 -- ============================================
---  ФУНКЦИИ
+--  ESP С HIGHLIGHT (РАБОТАЕТ ВСЕГДА!)
 -- ============================================
 
--- 1. AIMBOT (исправленный)
+local function createHighlight(playerObj)
+    -- Удаляем старый ESP если есть
+    if espObjects[playerObj] then
+        espObjects[playerObj]:Destroy()
+        espObjects[playerObj] = nil
+    end
+    
+    if not playerObj.Character then return end
+    
+    -- Создаём Highlight
+    local highlight = Instance.new("Highlight")
+    highlight.Parent = playerObj.Character
+    highlight.FillColor = Color3.fromRGB(0, 255, 100)  -- Ярко-зелёный
+    highlight.FillTransparency = 0.5
+    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+    highlight.OutlineTransparency = 0
+    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    
+    espObjects[playerObj] = highlight
+end
+
+local function removeHighlight(playerObj)
+    if espObjects[playerObj] then
+        espObjects[playerObj]:Destroy()
+        espObjects[playerObj] = nil
+    end
+end
+
+-- Обновление ESP
+RunService.Heartbeat:Connect(function()
+    if not functionsState.ESP then
+        for plr, highlight in pairs(espObjects) do
+            if highlight then highlight:Destroy() end
+        end
+        espObjects = {}
+        return
+    end
+    
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= player then
+            if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+                createHighlight(plr)
+            else
+                removeHighlight(plr)
+            end
+        end
+    end
+end)
+
+-- Очистка при выходе игроков
+Players.PlayerRemoving:Connect(function(plr)
+    removeHighlight(plr)
+end)
+
+-- ============================================
+--  AIMBOT
+-- ============================================
+
 RunService.Heartbeat:Connect(function()
     if not functionsState.Aimbot then return end
     
@@ -298,7 +347,10 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- 2. NOCLIP (исправленный - работает всегда)
+-- ============================================
+--  NOCLIP
+-- ============================================
+
 RunService.Heartbeat:Connect(function()
     if not functionsState.NoClip then return end
     
@@ -312,7 +364,6 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- Восстановление коллизий при выключении
 RunService.Heartbeat:Connect(function()
     if functionsState.NoClip then return end
     
@@ -326,7 +377,10 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- 3. INFINITY JUMP (бесконечный прыжок)
+-- ============================================
+--  INFINITY JUMP
+-- ============================================
+
 RunService.Heartbeat:Connect(function()
     if not functionsState.InfinityJump then return end
     
@@ -339,67 +393,10 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- 4. ANTI FLASH (исправленный)
-RunService.RenderStepped:Connect(function()
-    if not functionsState.AntiFlash then return end
-    
-    -- Убираем все эффекты ослепления
-    for _, v in ipairs(Workspace:GetDescendants()) do
-        if v:IsA("BloomEffect") or v:IsA("BlurEffect") or v:IsA("ColorCorrectionEffect") then
-            v.Enabled = false
-        end
-        if v.Name:find("Flash") or v.Name:find("Blind") then
-            if v:IsA("BasePart") then
-                v.Transparency = 1
-            elseif v:IsA("Model") then
-                v:Destroy()
-            end
-        end
-    end
-    
-    -- Сбрасываем яркость
-    local lighting = game:GetService("Lighting")
-    if lighting.Brightness > 1 then
-        lighting.Brightness = 1
-    end
-end)
+-- ============================================
+--  SPEED
+-- ============================================
 
--- 5. ESP (исправленный)
-local function createESP(playerObj)
-    if espObjects[playerObj] then return end
-    if not playerObj.Character then return end
-    
-    local root = playerObj.Character:FindFirstChild("HumanoidRootPart")
-    if not root then return end
-    
-    local esp = Instance.new("BoxHandleAdornment")
-    esp.Size = Vector3.new(4, 6, 2)
-    esp.Color3 = Color3.fromRGB(0, 255, 100)
-    esp.Transparency = 0.5
-    esp.AlwaysOnTop = true
-    esp.ZIndex = 10
-    esp.Parent = root
-    
-    espObjects[playerObj] = esp
-end
-
-RunService.Heartbeat:Connect(function()
-    if not functionsState.ESP then
-        for plr, esp in pairs(espObjects) do
-            if esp then esp:Destroy() end
-        end
-        espObjects = {}
-        return
-    end
-    
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-            createESP(plr)
-        end
-    end
-end)
-
--- 6. SPEED
 RunService.Heartbeat:Connect(function()
     if functionsState.Speed then
         local char, hum, root = getCharacter()
@@ -414,7 +411,10 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- 7. BHOP
+-- ============================================
+--  BHOP
+-- ============================================
+
 RunService.Heartbeat:Connect(function()
     if not functionsState.BHop then return end
     
@@ -426,7 +426,10 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- 8. INFINITE AMMO
+-- ============================================
+--  INFINITE AMMO
+-- ============================================
+
 RunService.Stepped:Connect(function()
     if not functionsState.InfiniteAmmo then return end
     
@@ -444,11 +447,17 @@ RunService.Stepped:Connect(function()
             if weapon:FindFirstChild("CurrentAmmo") then
                 weapon.CurrentAmmo.Value = 999
             end
+            if weapon:FindFirstChild("ReserveAmmo") then
+                weapon.ReserveAmmo.Value = 999
+            end
         end
     end
 end)
 
--- 9. NO RECOIL
+-- ============================================
+--  NO RECOIL
+-- ============================================
+
 RunService.Stepped:Connect(function()
     if not functionsState.NoRecoil then return end
     
@@ -460,8 +469,17 @@ RunService.Stepped:Connect(function()
             if weapon:FindFirstChild("Recoil") then
                 weapon.Recoil.Value = 0
             end
+            if weapon:FindFirstChild("CurrentRecoil") then
+                weapon.CurrentRecoil.Value = 0
+            end
+            if weapon:FindFirstChild("RecoilAmount") then
+                weapon.RecoilAmount.Value = 0
+            end
             if weapon:FindFirstChild("Spread") then
                 weapon.Spread.Value = 0
+            end
+            if weapon:FindFirstChild("CurrentSpread") then
+                weapon.CurrentSpread.Value = 0
             end
         end
     end
@@ -485,14 +503,13 @@ end)
 -- ============================================
 
 print("========================================")
-print("  ZERTYX MENU v3.0 ЗАГРУЖЕН!")
+print("  ZERTYX MENU v3.3 ЗАГРУЖЕН!")
+print("  👉 ESP теперь с HIGHLIGHT - РАБОТАЕТ 100%")
 print("  👉 Вкладки: Combat, Movement, Visual, Other")
 print("  👉 NoClip работает на любой карте")
 print("  👉 Aimbot наводится на врагов")
-print("  👉 Anti Flash убирает ослепление")
 print("========================================")
 
--- Анимация
 mainFrame.Position = UDim2.new(0.5, -320, 0.5, -180)
 mainFrame.BackgroundTransparency = 0.2
 TweenService:Create(mainFrame, TweenInfo.new(0.3), {
@@ -500,4 +517,4 @@ TweenService:Create(mainFrame, TweenInfo.new(0.3), {
     BackgroundTransparency = 0
 }):Play()
 
-print("[Zertyx] ✅ Скрипт полностью готов!")
+print("[Zertyx] ✅ ESP с HIGHLIGHT готов! Игроки подсвечиваются зелёным!")
