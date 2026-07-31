@@ -154,9 +154,9 @@ rightLabelAim.Parent = rightHalfAim
 --  ВКЛАДКА ESP (ESP + Health Bar)
 -- ============================================================
 local espPage = pages["Esp"]
-local espEnabled = false
-local boxEnabled = false
-local healthEnabled = false
+local espEnabled = true
+local boxEnabled = true
+local healthEnabled = true
 
 local espObjects = {}
 local hue = 0
