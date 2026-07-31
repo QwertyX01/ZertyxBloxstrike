@@ -1,5 +1,5 @@
 -- =====================================================
---  Zertyx Menu (ESP + 2D Box) – РАБОЧАЯ ВЕРСИЯ
+--  Zertyx Menu (ESP + 2D Box) с отладкой
 -- =====================================================
 
 local player = game:GetService("Players").LocalPlayer
@@ -151,7 +151,7 @@ rightLabelAim.TextYAlignment = Enum.TextYAlignment.Center
 rightLabelAim.Parent = rightHalfAim
 
 -- ============================================================
---  ВКЛАДКА ESP (ТОЛЬКО ESP + 2D BOX)
+--  ВКЛАДКА ESP (с отладкой)
 -- ============================================================
 local espPage = pages["Esp"]
 local espEnabled = false
@@ -161,13 +161,13 @@ local espObjects = {}
 local hue = 0
 local hasDrawing = pcall(function() return Drawing end) and Drawing ~= nil
 
--- Упрощённая проверка врага (игнорируем команды, чтобы точно работало)
+-- Упрощённая проверка врага
 local function isEnemy(plr)
     if plr == player then return false end
     if not plr.Character then return false end
     local humanoid = plr.Character:FindFirstChild("Humanoid")
     if not humanoid or humanoid.Health <= 0 then return false end
-    return true  -- все остальные считаются врагами
+    return true
 end
 
 local function getRootPart(character)
@@ -182,11 +182,15 @@ local function updateESP()
     -- Удаляем объекты для невалидных игроков
     for plr, data in pairs(espObjects) do
         if not plr or not plr.Parent or not isEnemy(plr) or not plr.Character then
-            if data.highlight then data.highlight:Destroy() end
+            if data.highlight then
+                data.highlight:Destroy()
+                print("❌ Highlight удалён для", plr.Name, "(игрок невалиден)")
+            end
             if data.boxLines then
                 for _, line in pairs(data.boxLines) do
                     line:Remove()
                 end
+                print("❌ 2D Box удалён для", plr.Name, "(игрок невалиден)")
             end
             espObjects[plr] = nil
         end
@@ -220,6 +224,7 @@ local function updateESP()
                 highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
                 highlight.Parent = character
                 data.highlight = highlight
+                print("✅ Highlight создан для", plr.Name)
             else
                 data.highlight.FillColor = dynamicColor
                 data.highlight.OutlineColor = dynamicColor
@@ -227,6 +232,7 @@ local function updateESP()
         else
             if data.highlight then
                 data.highlight:Destroy()
+                print("❌ Highlight удалён для", plr.Name, "(ESP выключен)")
                 data.highlight = nil
             end
         end
@@ -243,7 +249,9 @@ local function updateESP()
                     line.Visible = false
                     table.insert(data.boxLines, line)
                 end
+                print("✅ 2D Box создан для", plr.Name)
             end
+            -- Обновляем позиции
             local headPos = head.Position
             local rootPos = rootPart.Position
             local height = (headPos - rootPos).Magnitude
@@ -293,6 +301,7 @@ local function updateESP()
                 for _, line in pairs(data.boxLines) do
                     line:Remove()
                 end
+                print("❌ 2D Box удалён для", plr.Name, "(Box выключен)")
                 data.boxLines = nil
             end
         end
@@ -371,6 +380,8 @@ local function createCheckbox(parent, text, yPos, defaultValue, callback)
         checkbox.Text = state and "✓" or ""
         checkbox.BackgroundColor3 = state and Color3.fromRGB(0, 180, 0) or Color3.fromRGB(40, 40, 45)
         callback(state)
+        -- Принудительно обновляем ESP при клике
+        updateESP()
     end)
 
     if defaultValue then
@@ -494,4 +505,4 @@ tabButtons["Aim"].BackgroundColor3 = Color3.fromRGB(60, 60, 70)
 tabButtons["Aim"].BackgroundTransparency = 0.1
 tabButtons["Aim"].TextColor3 = Color3.fromRGB(255, 255, 255)
 
-print("✅ Zertyx Menu (рабочая версия) загружен!")
+print("✅ Zertyx Menu с отладкой загружен!")
