@@ -1,167 +1,294 @@
--- Создание GUI в памяти игры
-local CoreGui = game:GetService("CoreGui")
+-- LocalScript (поместите в StarterGui)
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
 
--- Проверка на повторный запуск (удаляет старое меню, чтобы не плодились копии)
-if CoreGui:FindFirstChild("ZertyxMenu") then
-	CoreGui.ZertyxMenu:Destroy()
+local player = Players.LocalPlayer
+local mouse = player:GetMouse()
+local camera = workspace.CurrentCamera
+
+-- Настройки
+local settings = {
+    aimbotEnabled = false,
+    espEnabled = false,
+    silentAim = false,
+    aimRadius = 200, -- пикселей от центра экрана
+}
+
+-- ---------------------------------- GUI ----------------------------------
+local screenGui = Instance.new("ScreenGui")
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 250, 0, 200)
+mainFrame.Position = UDim2.new(0, 10, 0, 10)
+mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+mainFrame.BackgroundTransparency = 0.3
+mainFrame.BorderSizePixel = 0
+mainFrame.Parent = screenGui
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 30)
+title.BackgroundTransparency = 1
+title.Text = "Bloxstrike Menu"
+title.TextColor3 = Color3.new(1,1,1)
+title.TextSize = 18
+title.Font = Enum.Font.SourceSansBold
+title.Parent = mainFrame
+
+-- Кнопка Aimbot
+local aimbotBtn = Instance.new("TextButton")
+aimbotBtn.Size = UDim2.new(0, 100, 0, 30)
+aimbotBtn.Position = UDim2.new(0, 10, 0, 40)
+aimbotBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+aimbotBtn.Text = "Aimbot OFF"
+aimbotBtn.TextColor3 = Color3.new(1,1,1)
+aimbotBtn.Parent = mainFrame
+aimbotBtn.MouseButton1Click:Connect(function()
+    settings.aimbotEnabled = not settings.aimbotEnabled
+    aimbotBtn.Text = settings.aimbotEnabled and "Aimbot ON" or "Aimbot OFF"
+end)
+
+-- Кнопка ESP
+local espBtn = Instance.new("TextButton")
+espBtn.Size = UDim2.new(0, 100, 0, 30)
+espBtn.Position = UDim2.new(0, 130, 0, 40)
+espBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+espBtn.Text = "ESP OFF"
+espBtn.TextColor3 = Color3.new(1,1,1)
+espBtn.Parent = mainFrame
+espBtn.MouseButton1Click:Connect(function()
+    settings.espEnabled = not settings.espEnabled
+    espBtn.Text = settings.espEnabled and "ESP ON" or "ESP OFF"
+end)
+
+-- Чекбокс Silent Aim
+local silentCheck = Instance.new("TextButton")
+silentCheck.Size = UDim2.new(0, 100, 0, 30)
+silentCheck.Position = UDim2.new(0, 10, 0, 80)
+silentCheck.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+silentCheck.Text = "Silent OFF"
+silentCheck.TextColor3 = Color3.new(1,1,1)
+silentCheck.Parent = mainFrame
+silentCheck.MouseButton1Click:Connect(function()
+    settings.silentAim = not settings.silentAim
+    silentCheck.Text = settings.silentAim and "Silent ON" or "Silent OFF"
+end)
+
+-- Ползунок радиуса
+local radiusLabel = Instance.new("TextLabel")
+radiusLabel.Size = UDim2.new(0, 100, 0, 20)
+radiusLabel.Position = UDim2.new(0, 10, 0, 120)
+radiusLabel.BackgroundTransparency = 1
+radiusLabel.Text = "Radius: 200"
+radiusLabel.TextColor3 = Color3.new(1,1,1)
+radiusLabel.TextSize = 14
+radiusLabel.Parent = mainFrame
+
+local radiusSlider = Instance.new("Frame")
+radiusSlider.Size = UDim2.new(0, 200, 0, 10)
+radiusSlider.Position = UDim2.new(0, 10, 0, 145)
+radiusSlider.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+radiusSlider.Parent = mainFrame
+
+local sliderFill = Instance.new("Frame")
+sliderFill.Size = UDim2.new(0.5, 0, 1, 0)
+sliderFill.BackgroundColor3 = Color3.fromRGB(0, 200, 255)
+sliderFill.Parent = radiusSlider
+
+local dragging = false
+local function updateSlider(mouseX)
+    local relativeX = math.clamp((mouseX - radiusSlider.AbsolutePosition.X) / radiusSlider.AbsoluteSize.X, 0, 1)
+    sliderFill.Size = UDim2.new(relativeX, 0, 1, 0)
+    settings.aimRadius = math.floor(relativeX * 400)
+    radiusLabel.Text = "Radius: " .. settings.aimRadius
 end
 
--- Основной контейнер экрана
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "ZertyxMenu"
-ScreenGui.Parent = CoreGui
-ScreenGui.ResetOnSpawn = false
-
--- Главное окно меню (640х420)
-local MainFrame = Instance.new("Frame")
-MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 640, 0, 420)
-MainFrame.Position = UDim2.new(0.5, -320, 0.5, -210) -- Центр экрана
-MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30) -- Темный фон
-MainFrame.BorderSizePixel = 0
-MainFrame.Active = true
-MainFrame.Draggable = true -- Меню можно перетаскивать мышкой
-MainFrame.Parent = ScreenGui
-
--- Мягкие углы для главного окна
-local MainCorner = Instance.new("UICorner")
-MainCorner.CornerRadius = UDim.new(0, 10) -- Скругление 10 пикселей
-MainCorner.Parent = MainFrame
-
--- Хедер (Верхняя панель)
-local Header = Instance.new("Frame")
-Header.Name = "Header"
-Header.Size = UDim2.new(1, 0, 0, 45) -- Высота хедера 45px
-Header.Position = UDim2.new(0, 0, 0, 0)
-Header.BackgroundColor3 = Color3.fromRGB(45, 45, 45) -- Серый цвет выделения
-Header.BorderSizePixel = 0
-Header.Parent = MainFrame
-
--- Мягкие углы для хедера (чтобы не вылезали за верхний край главного окна)
-local HeaderCorner = Instance.new("UICorner")
-HeaderCorner.CornerRadius = UDim.new(0, 10)
-HeaderCorner.Parent = Header
-
--- Скрытие нижних углов хедера, чтобы они были прямыми стык-в-стык с фоном
-local HeaderPatch = Instance.new("Frame")
-HeaderPatch.Size = UDim2.new(1, 0, 0, 10)
-HeaderPatch.Position = UDim2.new(0, 0, 1, -10)
-HeaderPatch.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-HeaderPatch.BorderSizePixel = 0
-HeaderPatch.Parent = Header
-
--- Название чита в хедере
-local Title = Instance.new("TextLabel")
-Title.Name = "Title"
-Title.Size = UDim2.new(1, -20, 1, 0)
-Title.Position = UDim2.new(0, 15, 0, 0)
-Title.BackgroundTransparency = 1
-Title.Text = "Zertyx"
-Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.TextSize = 20
-Title.Font = Enum.Font.GothamBold
-Title.TextXAlignment = Enum.TextXAlignment.Left
-Title.Parent = Header
-
--- Контейнер для функций (Контентная часть)
-local ContentContainer = Instance.new("Frame")
-ContentContainer.Size = UDim2.new(1, -40, 1, -75)
-ContentContainer.Position = UDim2.new(0, 20, 0, 60)
-ContentContainer.BackgroundTransparency = 1
-ContentContainer.Parent = MainFrame
-
-----------------------------------------------------
--- ЛОГИКА ФУНКЦИЙ И КНОПОК
-----------------------------------------------------
-
-local aimbotEnabled = false
-local AIM_KEY = Enum.KeyCode.E 
-local TARGET_PART = "Head"     
-
--- Кнопка переключения Аимбота
-local AimButton = Instance.new("TextButton")
-AimButton.Name = "AimButton"
-AimButton.Size = UDim2.new(0, 200, 0, 40)
-AimButton.Position = UDim2.new(0, 0, 0, 0)
-AimButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-AimButton.Text = "Auto Aim: OFF"
-AimButton.TextColor3 = Color3.fromRGB(255, 100, 100)
-AimButton.TextSize = 16
-AimButton.Font = Enum.Font.GothamSemibold
-AimButton.Parent = ContentContainer
-
-local ButtonCorner = Instance.new("UICorner")
-ButtonCorner.CornerRadius = UDim.new(0, 6)
-ButtonCorner.Parent = AimButton
-
--- Переключение состояния по клику
-AimButton.MouseButton1Click:Connect(function()
-	aimbotEnabled = not aimbotEnabled
-	if aimbotEnabled then
-		AimButton.Text = "Auto Aim: ON"
-		AimButton.BackgroundColor3 = Color3.fromRGB(40, 100, 40)
-		AimButton.TextColor3 = Color3.fromRGB(100, 255, 100)
-	else
-		AimButton.Text = "Auto Aim: OFF"
-		AimButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-		AimButton.TextColor3 = Color3.fromRGB(255, 100, 100)
-	end
+radiusSlider.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        updateSlider(input.Position.X)
+    end
 end)
 
--- Функция поиска цели
-local function getClosestEnemy()
-	local closestTarget = nil
-	local maxDistance = math.huge
-	local localCharacter = LocalPlayer.Character
-	if not localCharacter or not localCharacter:FindFirstChild("HumanoidRootPart") then return nil end
-	local localRoot = localCharacter.HumanoidRootPart
+radiusSlider.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = false
+    end
+end)
 
-	for _, player in ipairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer and player.Team ~= LocalPlayer.Team then
-			local character = player.Character
-			if character and character:FindFirstChild(TARGET_PART) and character:FindFirstChild("Humanoid") then
-				if character.Humanoid.Health > 0 then
-					local distance = (character[TARGET_PART].Position - localRoot.Position).Magnitude
-					if distance < maxDistance then
-						maxDistance = distance
-						closestTarget = character[TARGET_PART]
-					end
-				end
-			end
-		end
-	end
-	return closestTarget
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        updateSlider(input.Position.X)
+    end
+end)
+
+-- ---------------------------------- ESP ----------------------------------
+local espObjects = {}
+
+local function createEspObject()
+    local box = Drawing.new("Square")
+    box.Thickness = 2
+    box.Color = Color3.new(1,1,1)
+    box.Filled = false
+    box.Transparency = 1
+    box.Visible = false
+    
+    local text = Drawing.new("Text")
+    text.Color = Color3.new(1,1,1)
+    text.Size = 14
+    text.Center = true
+    text.Outline = true
+    text.OutlineColor = Color3.new(0,0,0)
+    text.Visible = false
+    
+    return {box = box, text = text}
 end
 
--- Логика удержания клавиши аима
-local isKeyHeld = false
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-	if gameProcessed then return end
-	if input.KeyCode == AIM_KEY then isKeyHeld = true end
-end)
+-- Определение команды игрока (подстройте под Bloxstrike)
+local function getPlayerTeam(plr)
+    local teamVal = plr:FindFirstChild("Team")
+    if teamVal and (teamVal:IsA("StringValue") or teamVal:IsA("IntValue")) then
+        return tostring(teamVal.Value)
+    end
+    -- Если используется встроенная команда Roblox
+    if plr.Team then
+        return plr.Team.Name
+    end
+    return nil
+end
 
-UserInputService.InputEnded:Connect(function(input)
-	if input.KeyCode == AIM_KEY then isKeyHeld = false end
-end)
+local function getEnemyHead(enemy)
+    local char = enemy.Character
+    if not char then return nil end
+    local head = char:FindFirstChild("Head")
+    if head then return head end
+    return char:FindFirstChild("HumanoidRootPart")
+end
 
--- Главный цикл аима
+local function worldToScreen(pos)
+    local vec, onScreen = camera:WorldToScreenPoint(pos)
+    return Vector2.new(vec.X, vec.Y), onScreen
+end
+
 RunService.RenderStepped:Connect(function()
-	if aimbotEnabled and isKeyHeld then
-		local target = getClosestEnemy()
-		if target then
-			Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Position)
-		end
-	end
+    if not settings.espEnabled then
+        for _, obj in pairs(espObjects) do
+            obj.box.Visible = false
+            obj.text.Visible = false
+        end
+        return
+    end
+    
+    local localTeam = getPlayerTeam(player)
+    if not localTeam then return end
+    
+    for _, other in ipairs(Players:GetPlayers()) do
+        if other ~= player then
+            local otherTeam = getPlayerTeam(other)
+            if otherTeam and otherTeam ~= localTeam then
+                local head = getEnemyHead(other)
+                if head then
+                    local headPos = head.Position
+                    local screenPos, onScreen = worldToScreen(headPos + Vector3.new(0, 0.5, 0))
+                    if onScreen then
+                        if not espObjects[other] then
+                            espObjects[other] = createEspObject()
+                        end
+                        local esp = espObjects[other]
+                        
+                        local humanoid = other.Character:FindFirstChild("Humanoid")
+                        local height = 3
+                        local bottomPos = headPos - Vector3.new(0, height/2, 0)
+                        local topPos = headPos + Vector3.new(0, height/2, 0)
+                        local bottomScreen, _ = worldToScreen(bottomPos)
+                        local topScreen, _ = worldToScreen(topPos)
+                        local boxHeight = math.abs(topScreen.Y - bottomScreen.Y)
+                        local boxWidth = boxHeight * 0.5
+                        local centerX = screenPos.X
+                        local centerY = (topScreen.Y + bottomScreen.Y) / 2
+                        
+                        esp.box.Size = Vector2.new(boxWidth, boxHeight)
+                        esp.box.Position = Vector2.new(centerX - boxWidth/2, centerY - boxHeight/2)
+                        esp.box.Visible = true
+                        
+                        local hp = humanoid and humanoid.Health or 0
+                        esp.text.Text = string.format("%.0f HP", hp)
+                        esp.text.Position = Vector2.new(centerX, topScreen.Y - 20)
+                        esp.text.Visible = true
+                    else
+                        if espObjects[other] then
+                            espObjects[other].box.Visible = false
+                            espObjects[other].text.Visible = false
+                        end
+                    end
+                end
+            else
+                if espObjects[other] then
+                    espObjects[other].box.Visible = false
+                    espObjects[other].text.Visible = false
+                end
+            end
+        end
+    end
+    
+    for plr, esp in pairs(espObjects) do
+        if not plr.Parent then
+            esp.box.Visible = false
+            esp.text.Visible = false
+            espObjects[plr] = nil
+        end
+    end
 end)
 
--- Свернуть/развернуть меню на клавишу Insert
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-	if not gameProcessed and input.KeyCode == Enum.KeyCode.Insert then
-		MainFrame.Visible = not MainFrame.Visible
-	end
+-- ---------------------------------- Aimbot ----------------------------------
+local function getClosestEnemyInRadius()
+    local localTeam = getPlayerTeam(player)
+    if not localTeam then return nil, nil end
+    
+    local closestDist = settings.aimRadius
+    local closestEnemy = nil
+    local closestHeadPos = nil
+    
+    for _, other in ipairs(Players:GetPlayers()) do
+        if other ~= player then
+            local otherTeam = getPlayerTeam(other)
+            if otherTeam and otherTeam ~= localTeam then
+                local head = getEnemyHead(other)
+                if head then
+                    local headPos = head.Position
+                    local screenPos, onScreen = worldToScreen(headPos)
+                    if onScreen then
+                        local dist = (screenPos - Vector2.new(mouse.X, mouse.Y)).Magnitude
+                        if dist < closestDist then
+                            closestDist = dist
+                            closestEnemy = other
+                            closestHeadPos = headPos
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return closestEnemy, closestHeadPos
+end
+
+local function aimAt(headPos)
+    if not headPos then return end
+    local camPos = camera.CFrame.Position
+    mouse.Hit = CFrame.new(camPos + (headPos - camPos).Unit * 100, headPos)
+end
+
+mouse.Button1Down:Connect(function()
+    if not settings.aimbotEnabled then return end
+    
+    local enemy, headPos = getClosestEnemyInRadius()
+    if enemy and headPos then
+        -- При silent aim мы всё равно перенаправляем выстрел через mouse.Hit.
+        -- Для настоящего Silent Aim требуется перехват RemoteEvent'а оружия,
+        -- чтобы изменять направление без движения прицела.
+        aimAt(headPos)
+    end
 end)
+
+print("Bloxstrike Menu loaded!")
