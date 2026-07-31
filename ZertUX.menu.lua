@@ -1,5 +1,5 @@
 -- =====================================================
---  Zertyx Menu (ESP с чекбоксами)
+--  Zertyx Menu (ESP + Health Bar + Third Person)
 -- =====================================================
 
 local player = game:GetService("Players").LocalPlayer
@@ -164,11 +164,13 @@ rightLabelAim.TextYAlignment = Enum.TextYAlignment.Center
 rightLabelAim.Parent = rightHalfAim
 
 -- ============================================================
---  ВКЛАДКА ESP (с чекбоксами)
+--  ВКЛАДКА ESP (с чекбоксами, Health Bar, Third Person)
 -- ============================================================
 local espPage = pages["Esp"]
 local espEnabled = false
 local boxEnabled = false
+local healthBarEnabled = false
+local thirdPersonEnabled = false
 
 -- Хранилище объектов ESP
 local espObjects = {}
@@ -216,6 +218,9 @@ local function clearESP()
                 line:Remove()
             end
         end
+        if data.healthBar then
+            data.healthBar:Destroy()
+        end
     end
     espObjects = {}
 end
@@ -223,7 +228,7 @@ end
 -- Переменная для динамичного цвета
 local hue = 0
 
--- Основной цикл обновления ESP
+-- Основной цикл обновления ESP и Health Bar
 RunService.RenderStepped:Connect(function()
     hue = (hue + 0.002) % 1
     local dynamicColor = Color3.fromHSV(hue, 0.8, 1)
@@ -236,6 +241,9 @@ RunService.RenderStepped:Connect(function()
                     line:Remove()
                 end
             end
+            if data.healthBar then
+                data.healthBar:Destroy()
+            end
             espObjects[plr] = nil
         end
     end
@@ -245,7 +253,7 @@ RunService.RenderStepped:Connect(function()
         local character = plr.Character
         if not character then continue end
         local humanoid = character:FindFirstChild("Humanoid")
-        if humanoid and humanoid.Health <= 0 then continue end
+        if not humanoid or humanoid.Health <= 0 then continue end
 
         local rootPart = getRootPart(character)
         local head = character:FindFirstChild("Head")
@@ -256,6 +264,7 @@ RunService.RenderStepped:Connect(function()
         end
         local data = espObjects[plr]
 
+        -- Highlight
         if espEnabled then
             if not data.highlight then
                 local highlight = Instance.new("Highlight")
@@ -278,6 +287,7 @@ RunService.RenderStepped:Connect(function()
             end
         end
 
+        -- 2D Box
         if boxEnabled and hasDrawing then
             if not data.boxLines then
                 data.boxLines = {}
@@ -342,7 +352,77 @@ RunService.RenderStepped:Connect(function()
                 data.boxLines = nil
             end
         end
+
+        -- Health Bar
+        if healthBarEnabled then
+            if not data.healthBar then
+                local billboard = Instance.new("BillboardGui")
+                billboard.Size = UDim2.new(0, 80, 0, 20)
+                billboard.Adornee = head
+                billboard.StudsOffset = Vector3.new(0, 2.5, 0)
+                billboard.AlwaysOnTop = true
+                billboard.Parent = character
+
+                local barFrame = Instance.new("Frame")
+                barFrame.Size = UDim2.new(1, 0, 1, 0)
+                barFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+                barFrame.BackgroundTransparency = 0.3
+                barFrame.BorderSizePixel = 0
+                barFrame.Parent = billboard
+
+                local fill = Instance.new("Frame")
+                fill.Size = UDim2.new(1, 0, 1, 0)
+                fill.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+                fill.BackgroundTransparency = 0
+                fill.BorderSizePixel = 0
+                fill.Parent = barFrame
+
+                local label = Instance.new("TextLabel")
+                label.Size = UDim2.new(1, 0, 1, 0)
+                label.BackgroundTransparency = 1
+                label.Text = ""
+                label.TextColor3 = Color3.fromRGB(255, 255, 255)
+                label.TextSize = 12
+                label.Font = Enum.Font.GothamBold
+                label.TextXAlignment = Enum.TextXAlignment.Center
+                label.TextYAlignment = Enum.TextYAlignment.Center
+                label.Parent = billboard
+
+                data.healthBar = billboard
+                data.healthFill = fill
+                data.healthLabel = label
+            end
+
+            local health = humanoid.Health
+            local maxHealth = humanoid.MaxHealth
+            local percent = math.clamp(health / maxHealth, 0, 1)
+            data.healthFill.Size = UDim2.new(percent, 0, 1, 0)
+            data.healthFill.BackgroundColor3 = Color3.fromRGB(255 * (1 - percent), 255 * percent, 0)
+            data.healthLabel.Text = math.round(health) .. "/" .. math.round(maxHealth)
+        else
+            if data.healthBar then
+                data.healthBar:Destroy()
+                data.healthBar = nil
+                data.healthFill = nil
+                data.healthLabel = nil
+            end
+        end
     end
+end)
+
+-- Third Person (вид от третьего лица)
+local thirdPersonOffset = Vector3.new(0, 3, -8)  -- смещение камеры позади игрока
+
+RunService.RenderStepped:Connect(function()
+    if not thirdPersonEnabled then return end
+    local character = player.Character
+    if not character then return end
+    local root = character:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+
+    local camPos = root.Position + thirdPersonOffset
+    local lookAt = root.Position + Vector3.new(0, 2, 0)  -- смотреть на голову
+    Camera.CFrame = CFrame.new(camPos, lookAt)
 end)
 
 -- ============================================================
@@ -364,44 +444,41 @@ leftHalfEsp.Position = UDim2.new(0, 5, 0, 0)
 leftHalfEsp.BackgroundTransparency = 1
 leftHalfEsp.Parent = espPage
 
--- Функция создания чекбокса
+-- Функция создания чекбокса (сдвигаем влево, компактно)
 local function createCheckbox(parent, text, yPos, defaultValue, callback)
     local row = Instance.new("Frame")
-    row.Size = UDim2.new(1, 0, 0, 28)
+    row.Size = UDim2.new(1, 0, 0, 26)
     row.Position = UDim2.new(0, 0, 0, yPos)
     row.BackgroundTransparency = 1
     row.Parent = parent
 
-    -- Надпись (маленькая, слева)
     local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(0.5, 0, 1, 0)
+    label.Size = UDim2.new(0.6, 0, 1, 0)
     label.Position = UDim2.new(0, 5, 0, 0)
     label.BackgroundTransparency = 1
     label.Text = text
     label.TextColor3 = Color3.fromRGB(200, 200, 200)
-    label.TextSize = 14  -- меньше
+    label.TextSize = 14
     label.Font = Enum.Font.GothamMedium
     label.TextXAlignment = Enum.TextXAlignment.Left
     label.TextYAlignment = Enum.TextYAlignment.Center
     label.Parent = row
 
-    -- Квадратный чекбокс (с галочкой)
     local checkbox = Instance.new("TextButton")
-    checkbox.Size = UDim2.new(0, 22, 0, 22)
-    checkbox.Position = UDim2.new(0.55, 0, 0.5, -11)
+    checkbox.Size = UDim2.new(0, 20, 0, 20)
+    checkbox.Position = UDim2.new(0.6, 0, 0.5, -10)
     checkbox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
     checkbox.BackgroundTransparency = 0.2
     checkbox.BorderSizePixel = 0
     checkbox.Text = defaultValue and "✓" or ""
     checkbox.TextColor3 = Color3.fromRGB(255, 255, 255)
-    checkbox.TextSize = 18
+    checkbox.TextSize = 16
     checkbox.Font = Enum.Font.GothamBold
     checkbox.Parent = row
     local cbCorner = Instance.new("UICorner")
     cbCorner.CornerRadius = UDim.new(0, 4)
     cbCorner.Parent = checkbox
 
-    -- Эффект наведения
     checkbox.MouseEnter:Connect(function()
         if checkbox.BackgroundTransparency > 0.1 then
             TweenService:Create(checkbox, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65)}):Play()
@@ -422,7 +499,6 @@ local function createCheckbox(parent, text, yPos, defaultValue, callback)
         playClickSound()
     end)
 
-    -- Устанавливаем начальный цвет, если включено
     if defaultValue then
         checkbox.BackgroundColor3 = Color3.fromRGB(0, 180, 0)
     end
@@ -430,13 +506,24 @@ local function createCheckbox(parent, text, yPos, defaultValue, callback)
     return checkbox
 end
 
--- Создаём чекбоксы
-local espCheckbox = createCheckbox(leftHalfEsp, "ESP", 15, false, function(state)
+-- Чекбоксы
+local espCheckbox = createCheckbox(leftHalfEsp, "ESP", 10, false, function(state)
     espEnabled = state
 end)
 
-local boxCheckbox = createCheckbox(leftHalfEsp, "2D Box", 50, false, function(state)
+local boxCheckbox = createCheckbox(leftHalfEsp, "2D Box", 40, false, function(state)
     boxEnabled = state
+end)
+
+local healthCheckbox = createCheckbox(leftHalfEsp, "Health Bar", 70, false, function(state)
+    healthBarEnabled = state
+end)
+
+local thirdPersonCheckbox = createCheckbox(leftHalfEsp, "Third Person", 100, false, function(state)
+    thirdPersonEnabled = state
+    if not state then
+        -- При выключении возвращаем камеру в исходное состояние (можно просто остановить обновление)
+    end
 end)
 
 -- Правая половина (заглушка)
@@ -547,4 +634,4 @@ tabButtons["Aim"].BackgroundColor3 = Color3.fromRGB(60, 60, 70)
 tabButtons["Aim"].BackgroundTransparency = 0.1
 tabButtons["Aim"].TextColor3 = Color3.fromRGB(255, 255, 255)
 
-print("✅ Zertyx Menu (чекбоксы) загружен!")
+print("✅ Zertyx Menu (ESP, Health Bar, Third Person) загружен!")
