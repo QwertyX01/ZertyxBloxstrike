@@ -1,5 +1,5 @@
 -- =====================================================
---  Zertyx Menu (ESP стабильный + Health Bar)
+--  Zertyx Menu (ДИНАМИЧЕСКИЙ ESP + Health Bar)
 -- =====================================================
 
 local player = game:GetService("Players").LocalPlayer
@@ -12,19 +12,6 @@ local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local Camera = workspace.CurrentCamera
 local Players = game:GetService("Players")
-local SoundService = game:GetService("SoundService")
-
--- ============================================================
---  ЗВУК
--- ============================================================
-local clickSound = Instance.new("Sound")
-clickSound.SoundId = "https://www.image2url.com/r2/default/audio/1785482101020-da6f6692-cbe3-48a5-8c38-900a5f825d88.mp3"
-clickSound.Volume = 0.5
-clickSound.Parent = SoundService
-
-local function playClickSound()
-    clickSound:Play()
-end
 
 -- ============================================================
 --  ОСНОВНОЕ МЕНЮ
@@ -164,17 +151,13 @@ rightLabelAim.TextYAlignment = Enum.TextYAlignment.Center
 rightLabelAim.Parent = rightHalfAim
 
 -- ============================================================
---  ВКЛАДКА ESP (СТАБИЛЬНАЯ ВЕРСИЯ)
+--  ВКЛАДКА ESP (ДИНАМИЧЕСКИЙ ESP + HEALTH BAR)
 -- ============================================================
 local espPage = pages["Esp"]
-local espEnabled = true
-local boxEnabled = false
-local healthEnabled = false
 
+-- ESP и Health Bar всегда включены
 local espObjects = {}
 local hue = 0
-local hasDrawing = pcall(function() return Drawing end) and Drawing ~= nil
-local refreshTimer = 0
 
 local function getRootPart(character)
     if not character then return nil end
@@ -184,111 +167,89 @@ end
 local function refreshESP()
     for plr, data in pairs(espObjects) do
         if data.highlight then data.highlight:Destroy() end
-        if data.boxLines then
-            for _, line in pairs(data.boxLines) do
-                line:Remove()
-            end
-        end
-        if data.healthBar then
-            data.healthBar:Destroy()
-        end
+        if data.healthBar then data.healthBar:Destroy() end
     end
     espObjects = {}
-end
-
-local function updateESP()
-    refreshTimer = refreshTimer + 0.016
-    if refreshTimer < 0.5 then return end
-    refreshTimer = 0
-
-    refreshESP()
-
-    hue = (hue + 0.002) % 1
-    local dynamicColor = Color3.fromHSV(hue, 0.8, 1)
 
     for _, plr in pairs(Players:GetPlayers()) do
         if plr == player then continue end
-        local character = plr.Character
-        if not character then continue end
-        local humanoid = character:FindFirstChild("Humanoid")
+        local char = plr.Character
+        if not char then continue end
+        local humanoid = char:FindFirstChild("Humanoid")
         if not humanoid or humanoid.Health <= 0 then continue end
 
-        local rootPart = getRootPart(character)
-        local head = character:FindFirstChild("Head")
-        if not rootPart or not head then continue end
+        local head = char:FindFirstChild("Head")
+        local rootPart = getRootPart(char)
+        if not head or not rootPart then continue end
 
-        local data = { character = character }
+        hue = (hue + 0.1) % 1
+        local color = Color3.fromHSV(hue, 0.8, 1)
 
-        -- Highlight
+        -- ESP (Highlight)
         local highlight = Instance.new("Highlight")
-        highlight.Adornee = character
-        highlight.FillColor = dynamicColor
+        highlight.Adornee = char
+        highlight.FillColor = color
         highlight.FillTransparency = 0.4
-        highlight.OutlineColor = dynamicColor
+        highlight.OutlineColor = color
         highlight.OutlineTransparency = 0.2
         highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-        highlight.Parent = character
-        data.highlight = highlight
-
-        -- 2D Box
-        if boxEnabled and hasDrawing then
-            local lines = {}
-            for i = 1, 4 do
-                local line = Drawing.new("Line")
-                line.Color = Color3.fromRGB(255, 255, 255)
-                line.Thickness = 3
-                line.Transparency = 0.6
-                line.Visible = false
-                table.insert(lines, line)
-            end
-            data.boxLines = lines
-        end
+        highlight.Parent = char
 
         -- Health Bar
-        if healthEnabled then
-            local billboard = Instance.new("BillboardGui")
-            billboard.Size = UDim2.new(0, 80, 0, 20)
-            billboard.Adornee = head
-            billboard.StudsOffset = Vector3.new(0, 2.5, 0)
-            billboard.AlwaysOnTop = true
-            billboard.Parent = character
+        local billboard = Instance.new("BillboardGui")
+        billboard.Size = UDim2.new(0, 80, 0, 20)
+        billboard.Adornee = head
+        billboard.StudsOffset = Vector3.new(0, 2.5, 0)
+        billboard.AlwaysOnTop = true
+        billboard.Parent = char
 
-            local barFrame = Instance.new("Frame")
-            barFrame.Size = UDim2.new(1, 0, 1, 0)
-            barFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-            barFrame.BackgroundTransparency = 0.3
-            barFrame.BorderSizePixel = 0
-            barFrame.Parent = billboard
+        local barFrame = Instance.new("Frame")
+        barFrame.Size = UDim2.new(1, 0, 1, 0)
+        barFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        barFrame.BackgroundTransparency = 0.3
+        barFrame.BorderSizePixel = 0
+        barFrame.Parent = billboard
 
-            local fill = Instance.new("Frame")
-            fill.Size = UDim2.new(1, 0, 1, 0)
-            fill.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-            fill.BackgroundTransparency = 0
-            fill.BorderSizePixel = 0
-            fill.Parent = barFrame
+        local fill = Instance.new("Frame")
+        fill.Size = UDim2.new(1, 0, 1, 0)
+        fill.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+        fill.BackgroundTransparency = 0
+        fill.BorderSizePixel = 0
+        fill.Parent = barFrame
 
-            local label = Instance.new("TextLabel")
-            label.Size = UDim2.new(1, 0, 1, 0)
-            label.BackgroundTransparency = 1
-            label.Text = ""
-            label.TextColor3 = Color3.fromRGB(255, 255, 255)
-            label.TextSize = 12
-            label.Font = Enum.Font.GothamBold
-            label.TextXAlignment = Enum.TextXAlignment.Center
-            label.TextYAlignment = Enum.TextYAlignment.Center
-            label.Parent = billboard
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(1, 0, 1, 0)
+        label.BackgroundTransparency = 1
+        label.Text = ""
+        label.TextColor3 = Color3.fromRGB(255, 255, 255)
+        label.TextSize = 12
+        label.Font = Enum.Font.GothamBold
+        label.TextXAlignment = Enum.TextXAlignment.Center
+        label.TextYAlignment = Enum.TextYAlignment.Center
+        label.Parent = billboard
 
-            data.healthBar = billboard
-            data.healthFill = fill
-            data.healthLabel = label
-        end
-
-        espObjects[plr] = data
+        espObjects[plr] = {
+            highlight = highlight,
+            healthBar = billboard,
+            healthFill = fill,
+            healthLabel = label,
+            humanoid = humanoid
+        }
     end
+end
 
-    -- Обновление Health Bar (каждый кадр)
+-- Обновляем ESP каждые 0.5 секунды
+task.spawn(function()
+    while true do
+        task.wait(0.5)
+        refreshESP()
+    end
+end)
+
+-- Обновляем Health Bar каждый кадр
+RunService.RenderStepped:Connect(function()
     for plr, data in pairs(espObjects) do
-        if data.healthBar and data.humanoid then
+        if data.healthFill and data.humanoid then
             local health = data.humanoid.Health
             local maxHealth = data.humanoid.MaxHealth
             local percent = math.clamp(health / maxHealth, 0, 1)
@@ -296,171 +257,25 @@ local function updateESP()
             data.healthLabel.Text = math.round(health) .. "/" .. math.round(maxHealth)
         end
     end
+end)
 
-    -- Обновление 2D Box (каждый кадр)
-    for plr, data in pairs(espObjects) do
-        if data.boxLines and data.character then
-            local head = data.character:FindFirstChild("Head")
-            local rootPart = getRootPart(data.character)
-            if head and rootPart then
-                local headPos = head.Position
-                local rootPos = rootPart.Position
-                local height = (headPos - rootPos).Magnitude
-                local width = height * 0.8
-
-                local topPos = headPos + Vector3.new(0, 1, 0)
-                local bottomPos = rootPos - Vector3.new(0, 0.5, 0)
-
-                local topScreen, topVis = Camera:WorldToViewportPoint(topPos)
-                local bottomScreen, bottomVis = Camera:WorldToViewportPoint(bottomPos)
-
-                if topVis and bottomVis and topScreen.Z > 0 and bottomScreen.Z > 0 then
-                    local topY = topScreen.Y
-                    local bottomY = bottomScreen.Y
-                    local centerX = (topScreen.X + bottomScreen.X) / 2
-                    local boxHeight = math.abs(topY - bottomY)
-                    local boxWidth = boxHeight * 0.6
-
-                    local leftX = centerX - boxWidth / 2
-                    local rightX = centerX + boxWidth / 2
-
-                    local lines = data.boxLines
-                    lines[1].From = Vector2.new(leftX, topY)
-                    lines[1].To = Vector2.new(rightX, topY)
-                    lines[1].Visible = true
-
-                    lines[2].From = Vector2.new(leftX, bottomY)
-                    lines[2].To = Vector2.new(rightX, bottomY)
-                    lines[2].Visible = true
-
-                    lines[3].From = Vector2.new(leftX, topY)
-                    lines[3].To = Vector2.new(leftX, bottomY)
-                    lines[3].Visible = true
-
-                    lines[4].From = Vector2.new(rightX, topY)
-                    lines[4].To = Vector2.new(rightX, bottomY)
-                    lines[4].Visible = true
-                else
-                    for _, line in pairs(data.boxLines) do
-                        line.Visible = false
-                    end
-                end
-            end
-        end
-    end
-end
-
-RunService.RenderStepped:Connect(updateESP)
-
+-- При появлении новых игроков
 Players.PlayerAdded:Connect(function(plr)
     plr.CharacterAdded:Connect(function()
         task.wait(0.3)
+        refreshESP()
     end)
 end)
 
--- ============================================================
---  ИНТЕРФЕЙС ВКЛАДКИ ESP
--- ============================================================
-local espPage = pages["Esp"]
-
-local dividerEsp = Instance.new("Frame")
-dividerEsp.Size = UDim2.new(0, 2, 1, 0)
-dividerEsp.Position = UDim2.new(0.5, -1, 0, 0)
-dividerEsp.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-dividerEsp.BackgroundTransparency = 0.4
-dividerEsp.BorderSizePixel = 0
-dividerEsp.Parent = espPage
-
-local leftHalfEsp = Instance.new("Frame")
-leftHalfEsp.Size = UDim2.new(0.5, -5, 1, 0)
-leftHalfEsp.Position = UDim2.new(0, 5, 0, 0)
-leftHalfEsp.BackgroundTransparency = 1
-leftHalfEsp.Parent = espPage
-
-local function createCheckbox(parent, text, yPos, defaultValue, callback)
-    local row = Instance.new("Frame")
-    row.Size = UDim2.new(1, 0, 0, 26)
-    row.Position = UDim2.new(0, 0, 0, yPos)
-    row.BackgroundTransparency = 1
-    row.Parent = parent
-
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(0.6, 0, 1, 0)
-    label.Position = UDim2.new(0, 5, 0, 0)
-    label.BackgroundTransparency = 1
-    label.Text = text
-    label.TextColor3 = Color3.fromRGB(200, 200, 200)
-    label.TextSize = 14
-    label.Font = Enum.Font.GothamMedium
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.TextYAlignment = Enum.TextYAlignment.Center
-    label.Parent = row
-
-    local checkbox = Instance.new("TextButton")
-    checkbox.Size = UDim2.new(0, 20, 0, 20)
-    checkbox.Position = UDim2.new(0.6, 0, 0.5, -10)
-    checkbox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
-    checkbox.BackgroundTransparency = 0.2
-    checkbox.BorderSizePixel = 0
-    checkbox.Text = defaultValue and "✓" or ""
-    checkbox.TextColor3 = Color3.fromRGB(255, 255, 255)
-    checkbox.TextSize = 16
-    checkbox.Font = Enum.Font.GothamBold
-    checkbox.Parent = row
-    local cbCorner = Instance.new("UICorner")
-    cbCorner.CornerRadius = UDim.new(0, 4)
-    cbCorner.Parent = checkbox
-
-    checkbox.MouseEnter:Connect(function()
-        if checkbox.BackgroundTransparency > 0.1 then
-            TweenService:Create(checkbox, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 65)}):Play()
-        end
-    end)
-    checkbox.MouseLeave:Connect(function()
-        if checkbox.BackgroundTransparency < 0.9 then
-            TweenService:Create(checkbox, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(40, 40, 45)}):Play()
-        end
-    end)
-
-    local state = defaultValue
-    checkbox.MouseButton1Click:Connect(function()
-        state = not state
-        checkbox.Text = state and "✓" or ""
-        checkbox.BackgroundColor3 = state and Color3.fromRGB(0, 180, 0) or Color3.fromRGB(40, 40, 45)
-        callback(state)
-    end)
-
-    if defaultValue then
-        checkbox.BackgroundColor3 = Color3.fromRGB(0, 180, 0)
+-- Очистка при выходе
+Players.PlayerRemoving:Connect(function(plr)
+    local data = espObjects[plr]
+    if data then
+        if data.highlight then data.highlight:Destroy() end
+        if data.healthBar then data.healthBar:Destroy() end
+        espObjects[plr] = nil
     end
-
-    return checkbox
-end
-
-createCheckbox(leftHalfEsp, "2D Box", 10, false, function(state)
-    boxEnabled = state
 end)
-
-createCheckbox(leftHalfEsp, "Health Bar", 40, false, function(state)
-    healthEnabled = state
-end)
-
-local rightHalfEsp = Instance.new("Frame")
-rightHalfEsp.Size = UDim2.new(0.5, -5, 1, 0)
-rightHalfEsp.Position = UDim2.new(0.5, 5, 0, 0)
-rightHalfEsp.BackgroundTransparency = 1
-rightHalfEsp.Parent = espPage
-
-local rightLabelEsp = Instance.new("TextLabel")
-rightLabelEsp.Size = UDim2.new(1, 0, 1, 0)
-rightLabelEsp.BackgroundTransparency = 1
-rightLabelEsp.Text = "настройки\n(скоро)"
-rightLabelEsp.TextColor3 = Color3.fromRGB(150, 150, 150)
-rightLabelEsp.TextSize = 20
-rightLabelEsp.Font = Enum.Font.GothamMedium
-rightLabelEsp.TextXAlignment = Enum.TextXAlignment.Center
-rightLabelEsp.TextYAlignment = Enum.TextYAlignment.Center
-rightLabelEsp.Parent = rightHalfEsp
 
 -- ============================================================
 --  НИЖНИЕ ВКЛАДКИ
@@ -517,8 +332,6 @@ for i, name in ipairs(tabNames) do
     tabButtons[name] = btn
 
     btn.MouseButton1Click:Connect(function()
-        playClickSound()
-
         for pageName, page in pairs(pages) do
             if pageName == name then
                 page.Visible = true
@@ -552,4 +365,4 @@ tabButtons["Aim"].BackgroundColor3 = Color3.fromRGB(60, 60, 70)
 tabButtons["Aim"].BackgroundTransparency = 0.1
 tabButtons["Aim"].TextColor3 = Color3.fromRGB(255, 255, 255)
 
-print("✅ Zertyx Menu (ESP стабильный + Health Bar) загружен!")
+print("✅ Zertyx Menu (ДИНАМИЧЕСКИЙ ESP + Health Bar) загружен!")
