@@ -1,5 +1,5 @@
 -- =====================================================
---  Zertyx Menu (ESP + Health Bar, стабильное обновление)
+--  Zertyx Menu (ESP + Health Bar, фикс)
 -- =====================================================
 
 local player = game:GetService("Players").LocalPlayer
@@ -151,7 +151,7 @@ rightLabelAim.TextYAlignment = Enum.TextYAlignment.Center
 rightLabelAim.Parent = rightHalfAim
 
 -- ============================================================
---  ВКЛАДКА ESP (ESP + Health Bar)
+--  ВКЛАДКА ESP (FIX)
 -- ============================================================
 local espPage = pages["Esp"]
 local espEnabled = true
@@ -163,12 +163,13 @@ local hue = 0
 local hasDrawing = pcall(function() return Drawing end) and Drawing ~= nil
 local needRefresh = false
 
+print("🔍 ESP загружен! espEnabled =", espEnabled)
+
 local function getRootPart(character)
     if not character then return nil end
     return character:FindFirstChild("HumanoidRootPart") or character:FindFirstChild("RootPart") or character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso")
 end
 
--- УДАЛЯЕМ ВСЕ ОБЪЕКТЫ И ПОМЕЧАЕМ НУЖНОСТЬ ОБНОВЛЕНИЯ
 local function fullRefreshESP()
     for plr, data in pairs(espObjects) do
         if data.highlight then data.highlight:Destroy() end
@@ -183,21 +184,29 @@ local function fullRefreshESP()
     end
     espObjects = {}
     needRefresh = true
-    print("🔄 ESP полностью обновлён")
+    print("🔄 ESP полный сброс")
 end
 
--- ОСНОВНОЙ ЦИКЛ ОБНОВЛЕНИЯ
 local function updateESP()
-    -- Если нужно полное обновление, пересоздаём всё с нуля
     if needRefresh then
         needRefresh = false
-        -- Уже удалили в fullRefreshESP, просто выходим
     end
 
     hue = (hue + 0.002) % 1
     local dynamicColor = Color3.fromHSV(hue, 0.8, 1)
 
-    -- Проверяем всех игроков
+    -- Сначала проверяем, включён ли ESP
+    if not espEnabled then
+        -- Если ESP выключен, удаляем все Highlight
+        for plr, data in pairs(espObjects) do
+            if data.highlight then
+                data.highlight:Destroy()
+                data.highlight = nil
+            end
+        end
+        -- Но продолжаем обрабатывать игроков, чтобы создать Box и Health Bar (если они включены)
+    end
+
     for _, plr in pairs(Players:GetPlayers()) do
         if plr == player then
             local data = espObjects[plr]
@@ -271,7 +280,6 @@ local function updateESP()
             continue
         end
 
-        -- Проверяем, изменился ли персонаж
         local data = espObjects[plr]
         if data and data.character ~= character then
             if data.highlight then data.highlight:Destroy() end
@@ -304,6 +312,7 @@ local function updateESP()
                 highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
                 highlight.Parent = character
                 data.highlight = highlight
+                print("✅ Highlight создан для", plr.Name)
             else
                 data.highlight.FillColor = dynamicColor
                 data.highlight.OutlineColor = dynamicColor
@@ -327,6 +336,7 @@ local function updateESP()
                     line.Visible = false
                     table.insert(data.boxLines, line)
                 end
+                print("✅ 2D Box создан для", plr.Name)
             end
             local headPos = head.Position
             local rootPos = rootPart.Position
@@ -419,6 +429,7 @@ local function updateESP()
                 data.healthBar = billboard
                 data.healthFill = fill
                 data.healthLabel = label
+                print("✅ Health Bar создан для", plr.Name)
             end
 
             local health = humanoid.Health
@@ -437,10 +448,8 @@ local function updateESP()
     end
 end
 
--- ЗАПУСКАЕМ ОБНОВЛЕНИЕ КАЖДЫЙ КАДР
 RunService.RenderStepped:Connect(updateESP)
 
--- ПРИНУДИТЕЛЬНОЕ ПОЛНОЕ ОБНОВЛЕНИЕ КАЖДУЮ СЕКУНДУ
 task.spawn(function()
     while true do
         task.wait(1)
@@ -528,19 +537,22 @@ local function createCheckbox(parent, text, yPos, defaultValue, callback)
     return checkbox
 end
 
-createCheckbox(leftHalfEsp, "ESP", 10, false, function(state)
+createCheckbox(leftHalfEsp, "ESP", 10, true, function(state)
     espEnabled = state
     fullRefreshESP()
+    print("📌 espEnabled =", state)
 end)
 
 createCheckbox(leftHalfEsp, "2D Box", 40, false, function(state)
     boxEnabled = state
     fullRefreshESP()
+    print("📌 boxEnabled =", state)
 end)
 
 createCheckbox(leftHalfEsp, "Health Bar", 70, false, function(state)
     healthEnabled = state
     fullRefreshESP()
+    print("📌 healthEnabled =", state)
 end)
 
 local rightHalfEsp = Instance.new("Frame")
@@ -648,4 +660,4 @@ tabButtons["Aim"].BackgroundColor3 = Color3.fromRGB(60, 60, 70)
 tabButtons["Aim"].BackgroundTransparency = 0.1
 tabButtons["Aim"].TextColor3 = Color3.fromRGB(255, 255, 255)
 
-print("✅ Zertyx Menu (ESP + Health Bar) загружен!")
+print("✅ Zertyx Menu (финальный фикс) загружен!")
