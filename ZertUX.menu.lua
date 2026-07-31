@@ -1,5 +1,5 @@
 -- =====================================================
---  Zertyx Menu (Auto Aim для BloxStrike)
+--  Zertyx Menu (со звуком по твоей ссылке)
 -- =====================================================
 
 local player = game:GetService("Players").LocalPlayer
@@ -12,10 +12,19 @@ local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local Camera = workspace.CurrentCamera
 local Players = game:GetService("Players")
+local SoundService = game:GetService("SoundService")
 
 -- ============================================================
---  ЗАГРУЗКА ЛОГОТИПА (для простоты не используем)
+--  ЗВУК (твоя ссылка на MP3)
 -- ============================================================
+local clickSound = Instance.new("Sound")
+clickSound.SoundId = "https://www.image2url.com/r2/default/audio/1785482101020-da6f6692-cbe3-48a5-8c38-900a5f825d88.mp3"
+clickSound.Volume = 0.5
+clickSound.Parent = SoundService
+
+local function playClickSound()
+    clickSound:Play()
+end
 
 -- ============================================================
 --  ОСНОВНОЕ МЕНЮ
@@ -90,7 +99,6 @@ contentContainer.Parent = mainFrame
 
 local pages = {}
 local pageNames = {"Aim", "Esp"}
-local currentPage = "Aim"
 
 for i, name in ipairs(pageNames) do
     local page = Instance.new("Frame")
@@ -109,15 +117,13 @@ for i, name in ipairs(pageNames) do
 end
 
 -- ============================================================
---  ВКЛАДКА AIM (с разделителем и Auto Aim)
+--  ВКЛАДКА AIM
 -- ============================================================
 local aimPage = pages["Aim"]
 local aimEnabled = false
 local currentTarget = nil
-local lastTargetTime = 0
-local DETACH_ANGLE = 30  -- градусов, при котором сбрасывается цель
+local DETACH_ANGLE = 30
 
--- Вертикальный разделитель
 local divider = Instance.new("Frame")
 divider.Size = UDim2.new(0, 2, 1, 0)
 divider.Position = UDim2.new(0.5, -1, 0, 0)
@@ -126,21 +132,18 @@ divider.BackgroundTransparency = 0.4
 divider.BorderSizePixel = 0
 divider.Parent = aimPage
 
--- Левая половина
 local leftHalf = Instance.new("Frame")
 leftHalf.Size = UDim2.new(0.5, -5, 1, 0)
 leftHalf.Position = UDim2.new(0, 5, 0, 0)
 leftHalf.BackgroundTransparency = 1
 leftHalf.Parent = aimPage
 
--- Строка с текстом и кнопкой
 local row = Instance.new("Frame")
 row.Size = UDim2.new(1, 0, 0, 40)
 row.Position = UDim2.new(0, 0, 0.1, 0)
 row.BackgroundTransparency = 1
 row.Parent = leftHalf
 
--- Текст "Auto Aim" (жирный, размер 18)
 local label = Instance.new("TextLabel")
 label.Size = UDim2.new(0.6, 0, 1, 0)
 label.Position = UDim2.new(0, 10, 0, 0)
@@ -148,12 +151,11 @@ label.BackgroundTransparency = 1
 label.Text = "Auto Aim"
 label.TextColor3 = Color3.fromRGB(255, 255, 255)
 label.TextSize = 18
-label.Font = Enum.Font.GothamBold  -- жирный
+label.Font = Enum.Font.GothamBold
 label.TextXAlignment = Enum.TextXAlignment.Left
 label.TextYAlignment = Enum.TextYAlignment.Center
 label.Parent = row
 
--- Toggle Button (справа)
 local toggleBtn = Instance.new("TextButton")
 toggleBtn.Size = UDim2.new(0, 80, 0, 32)
 toggleBtn.Position = UDim2.new(0.75, 0, 0.5, -16)
@@ -177,7 +179,7 @@ local function updateToggle(state)
     else
         toggleBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
         toggleBtn.Text = "OFF"
-        currentTarget = nil  -- сбрасываем цель при выключении
+        currentTarget = nil
     end
     print("Auto Aim:", state and "ON" or "OFF")
 end
@@ -185,10 +187,9 @@ end
 toggleBtn.MouseButton1Click:Connect(function()
     updateToggle(not aimEnabled)
 end)
-
 updateToggle(false)
 
--- Правая половина (заглушка)
+-- Правая половина
 local rightHalf = Instance.new("Frame")
 rightHalf.Size = UDim2.new(0.5, -5, 1, 0)
 rightHalf.Position = UDim2.new(0.5, 5, 0, 0)
@@ -207,19 +208,17 @@ rightLabel.TextYAlignment = Enum.TextYAlignment.Center
 rightLabel.Parent = rightHalf
 
 -- ============================================================
---  ЛОГИКА AUTO AIM (для BloxStrike)
+--  ЛОГИКА AUTO AIM
 -- ============================================================
-
 local function isEnemy(plr)
     if plr == player then return false end
-    -- Проверка по команде (Team или TeamColor)
     if plr.Team and player.Team then
         return plr.Team ~= player.Team
     end
     if plr.TeamColor and player.TeamColor then
         return plr.TeamColor ~= player.TeamColor
     end
-    return true  -- если нет команд, считать врагами всех
+    return true
 end
 
 local function getClosestEnemy()
@@ -247,7 +246,6 @@ local function getClosestEnemy()
     return closest
 end
 
--- Основной цикл
 RunService.RenderStepped:Connect(function()
     if not aimEnabled then return end
 
@@ -255,33 +253,29 @@ RunService.RenderStepped:Connect(function()
     if not character then return end
     local camPos = Camera.CFrame.Position
 
-    -- Если текущая цель невалидна (умерла или удалена), ищем новую
     if currentTarget and currentTarget.Parent and currentTarget.Parent:FindFirstChild("Humanoid") and currentTarget.Parent.Humanoid.Health > 0 then
-        -- Цель жива
+        -- цель жива
     else
         currentTarget = getClosestEnemy()
         if not currentTarget then return end
         print("Новая цель:", currentTarget.Parent.Name)
     end
 
-    -- Проверка, не отвернулся ли игрок (сброс цели при повороте более чем на DETACH_ANGLE)
     local targetPos = currentTarget.Position
     local dirToTarget = (targetPos - camPos).Unit
     local lookVec = Camera.CFrame.LookVector
     local angle = math.deg(math.acos(dirToTarget:Dot(lookVec)))
     if angle > DETACH_ANGLE then
-        print("Игрок отвернулся, сброс цели")
+        print("Отвернулись, сброс цели")
         currentTarget = nil
         return
     end
 
-    -- Наводим на голову цели
-    local newCFrame = CFrame.new(camPos, targetPos)
-    Camera.CFrame = newCFrame
+    Camera.CFrame = CFrame.new(camPos, targetPos)
 end)
 
 -- ============================================================
---  НИЖНИЕ ВКЛАДКИ
+--  НИЖНИЕ ВКЛАДКИ (с анимацией и звуком)
 -- ============================================================
 local tabsBar = Instance.new("Frame")
 tabsBar.Name = "TabsBar"
@@ -323,21 +317,44 @@ for i, name in ipairs(tabNames) do
     btnCorner.CornerRadius = UDim.new(0, 6)
     btnCorner.Parent = btn
 
+    btn.MouseEnter:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(45, 45, 50)}):Play()
+    end)
+    btn.MouseLeave:Connect(function()
+        if btn.BackgroundColor3 ~= Color3.fromRGB(60, 60, 70) then
+            TweenService:Create(btn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(35, 35, 40)}):Play()
+        end
+    end)
+
     tabButtons[name] = btn
 
     btn.MouseButton1Click:Connect(function()
+        playClickSound()
+
         for pageName, page in pairs(pages) do
-            page.Visible = (pageName == name)
+            if pageName == name then
+                page.Visible = true
+                TweenService:Create(page, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.1}):Play()
+            else
+                TweenService:Create(page, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {BackgroundTransparency = 0.6}):Play()
+                task.wait(0.1)
+                page.Visible = false
+            end
         end
+
         for n, b in pairs(tabButtons) do
             if n == name then
-                b.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
-                b.BackgroundTransparency = 0.1
-                b.TextColor3 = Color3.fromRGB(255, 255, 255)
+                TweenService:Create(b, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                    BackgroundColor3 = Color3.fromRGB(60, 60, 70),
+                    BackgroundTransparency = 0.1,
+                    TextColor3 = Color3.fromRGB(255, 255, 255)
+                }):Play()
             else
-                b.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
-                b.BackgroundTransparency = 0.2
-                b.TextColor3 = Color3.fromRGB(180, 180, 180)
+                TweenService:Create(b, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                    BackgroundColor3 = Color3.fromRGB(35, 35, 40),
+                    BackgroundTransparency = 0.2,
+                    TextColor3 = Color3.fromRGB(180, 180, 180)
+                }):Play()
             end
         end
     end)
@@ -347,4 +364,4 @@ tabButtons["Aim"].BackgroundColor3 = Color3.fromRGB(60, 60, 70)
 tabButtons["Aim"].BackgroundTransparency = 0.1
 tabButtons["Aim"].TextColor3 = Color3.fromRGB(255, 255, 255)
 
-print("✅ Zertyx Menu (Auto Aim) загружен!")
+print("✅ Zertyx Menu со звуком по твоей ссылке загружен!")
