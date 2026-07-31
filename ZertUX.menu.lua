@@ -1,5 +1,5 @@
 -- =====================================================
---  Zertyx Menu (с вкладками Aim и Esp)
+--  Zertyx Menu (Auto Aim для BloxStrike)
 -- =====================================================
 
 local player = game:GetService("Players").LocalPlayer
@@ -8,6 +8,18 @@ gui.Name = "Zertyx"
 gui.ResetOnSpawn = false
 gui.Parent = player:WaitForChild("PlayerGui")
 
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
+local Players = game:GetService("Players")
+
+-- ============================================================
+--  ЗАГРУЗКА ЛОГОТИПА (для простоты не используем)
+-- ============================================================
+
+-- ============================================================
+--  ОСНОВНОЕ МЕНЮ
+-- ============================================================
 local mainFrame = Instance.new("Frame")
 mainFrame.Size = UDim2.new(0, 640, 0, 420)
 mainFrame.Position = UDim2.new(0.5, -320, 0.5, -210)
@@ -51,7 +63,6 @@ headerStroke.Thickness = 1
 headerStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 headerStroke.Parent = header
 
--- Название "Zertyx" в левом углу
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(0.5, 0, 1, 0)
 title.Position = UDim2.new(0, 10, 0, 0)
@@ -65,11 +76,11 @@ title.TextYAlignment = Enum.TextYAlignment.Center
 title.Parent = header
 
 -- ============================================================
---  КОНТЕНТ (страницы для вкладок)
+--  КОНТЕНТ
 -- ============================================================
 local contentContainer = Instance.new("Frame")
 contentContainer.Name = "ContentContainer"
-contentContainer.Size = UDim2.new(1, 0, 1, -70)  -- 35 (header) + 35 (tabs) = 70
+contentContainer.Size = UDim2.new(1, 0, 1, -70)
 contentContainer.Position = UDim2.new(0, 0, 0, 35)
 contentContainer.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 contentContainer.BackgroundTransparency = 0
@@ -98,7 +109,179 @@ for i, name in ipairs(pageNames) do
 end
 
 -- ============================================================
---  НИЖНИЕ ВКЛАДКИ (Aim и Esp)
+--  ВКЛАДКА AIM (с разделителем и Auto Aim)
+-- ============================================================
+local aimPage = pages["Aim"]
+local aimEnabled = false
+local currentTarget = nil
+local lastTargetTime = 0
+local DETACH_ANGLE = 30  -- градусов, при котором сбрасывается цель
+
+-- Вертикальный разделитель
+local divider = Instance.new("Frame")
+divider.Size = UDim2.new(0, 2, 1, 0)
+divider.Position = UDim2.new(0.5, -1, 0, 0)
+divider.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+divider.BackgroundTransparency = 0.4
+divider.BorderSizePixel = 0
+divider.Parent = aimPage
+
+-- Левая половина
+local leftHalf = Instance.new("Frame")
+leftHalf.Size = UDim2.new(0.5, -5, 1, 0)
+leftHalf.Position = UDim2.new(0, 5, 0, 0)
+leftHalf.BackgroundTransparency = 1
+leftHalf.Parent = aimPage
+
+-- Строка с текстом и кнопкой
+local row = Instance.new("Frame")
+row.Size = UDim2.new(1, 0, 0, 40)
+row.Position = UDim2.new(0, 0, 0.1, 0)
+row.BackgroundTransparency = 1
+row.Parent = leftHalf
+
+-- Текст "Auto Aim" (жирный, размер 18)
+local label = Instance.new("TextLabel")
+label.Size = UDim2.new(0.6, 0, 1, 0)
+label.Position = UDim2.new(0, 10, 0, 0)
+label.BackgroundTransparency = 1
+label.Text = "Auto Aim"
+label.TextColor3 = Color3.fromRGB(255, 255, 255)
+label.TextSize = 18
+label.Font = Enum.Font.GothamBold  -- жирный
+label.TextXAlignment = Enum.TextXAlignment.Left
+label.TextYAlignment = Enum.TextYAlignment.Center
+label.Parent = row
+
+-- Toggle Button (справа)
+local toggleBtn = Instance.new("TextButton")
+toggleBtn.Size = UDim2.new(0, 80, 0, 32)
+toggleBtn.Position = UDim2.new(0.75, 0, 0.5, -16)
+toggleBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+toggleBtn.BackgroundTransparency = 0.2
+toggleBtn.BorderSizePixel = 0
+toggleBtn.Text = "OFF"
+toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleBtn.TextSize = 16
+toggleBtn.Font = Enum.Font.SourceSansBold
+toggleBtn.Parent = row
+local btnCorner = Instance.new("UICorner")
+btnCorner.CornerRadius = UDim.new(0, 6)
+btnCorner.Parent = toggleBtn
+
+local function updateToggle(state)
+    aimEnabled = state
+    if state then
+        toggleBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+        toggleBtn.Text = "ON"
+    else
+        toggleBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+        toggleBtn.Text = "OFF"
+        currentTarget = nil  -- сбрасываем цель при выключении
+    end
+    print("Auto Aim:", state and "ON" or "OFF")
+end
+
+toggleBtn.MouseButton1Click:Connect(function()
+    updateToggle(not aimEnabled)
+end)
+
+updateToggle(false)
+
+-- Правая половина (заглушка)
+local rightHalf = Instance.new("Frame")
+rightHalf.Size = UDim2.new(0.5, -5, 1, 0)
+rightHalf.Position = UDim2.new(0.5, 5, 0, 0)
+rightHalf.BackgroundTransparency = 1
+rightHalf.Parent = aimPage
+
+local rightLabel = Instance.new("TextLabel")
+rightLabel.Size = UDim2.new(1, 0, 1, 0)
+rightLabel.BackgroundTransparency = 1
+rightLabel.Text = "настройки\n(скоро)"
+rightLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+rightLabel.TextSize = 20
+rightLabel.Font = Enum.Font.GothamMedium
+rightLabel.TextXAlignment = Enum.TextXAlignment.Center
+rightLabel.TextYAlignment = Enum.TextYAlignment.Center
+rightLabel.Parent = rightHalf
+
+-- ============================================================
+--  ЛОГИКА AUTO AIM (для BloxStrike)
+-- ============================================================
+
+local function isEnemy(plr)
+    if plr == player then return false end
+    -- Проверка по команде (Team или TeamColor)
+    if plr.Team and player.Team then
+        return plr.Team ~= player.Team
+    end
+    if plr.TeamColor and player.TeamColor then
+        return plr.TeamColor ~= player.TeamColor
+    end
+    return true  -- если нет команд, считать врагами всех
+end
+
+local function getClosestEnemy()
+    local character = player.Character
+    if not character then return nil end
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return nil end
+
+    local closest = nil
+    local closestDist = math.huge
+
+    for _, plr in pairs(Players:GetPlayers()) do
+        if isEnemy(plr) and plr.Character then
+            local head = plr.Character:FindFirstChild("Head")
+            local humanoid = plr.Character:FindFirstChild("Humanoid")
+            if head and humanoid and humanoid.Health > 0 then
+                local dist = (hrp.Position - head.Position).Magnitude
+                if dist < closestDist then
+                    closestDist = dist
+                    closest = head
+                end
+            end
+        end
+    end
+    return closest
+end
+
+-- Основной цикл
+RunService.RenderStepped:Connect(function()
+    if not aimEnabled then return end
+
+    local character = player.Character
+    if not character then return end
+    local camPos = Camera.CFrame.Position
+
+    -- Если текущая цель невалидна (умерла или удалена), ищем новую
+    if currentTarget and currentTarget.Parent and currentTarget.Parent:FindFirstChild("Humanoid") and currentTarget.Parent.Humanoid.Health > 0 then
+        -- Цель жива
+    else
+        currentTarget = getClosestEnemy()
+        if not currentTarget then return end
+        print("Новая цель:", currentTarget.Parent.Name)
+    end
+
+    -- Проверка, не отвернулся ли игрок (сброс цели при повороте более чем на DETACH_ANGLE)
+    local targetPos = currentTarget.Position
+    local dirToTarget = (targetPos - camPos).Unit
+    local lookVec = Camera.CFrame.LookVector
+    local angle = math.deg(math.acos(dirToTarget:Dot(lookVec)))
+    if angle > DETACH_ANGLE then
+        print("Игрок отвернулся, сброс цели")
+        currentTarget = nil
+        return
+    end
+
+    -- Наводим на голову цели
+    local newCFrame = CFrame.new(camPos, targetPos)
+    Camera.CFrame = newCFrame
+end)
+
+-- ============================================================
+--  НИЖНИЕ ВКЛАДКИ
 -- ============================================================
 local tabsBar = Instance.new("Frame")
 tabsBar.Name = "TabsBar"
@@ -120,7 +303,7 @@ topLine.Parent = tabsBar
 
 local tabButtons = {}
 local tabNames = {"Aim", "Esp"}
-local tabWidth = 0.5  -- каждая по 50%
+local tabWidth = 0.5
 
 for i, name in ipairs(tabNames) do
     local btn = Instance.new("TextButton")
@@ -136,7 +319,6 @@ for i, name in ipairs(tabNames) do
     btn.Font = Enum.Font.SourceSansBold
     btn.Parent = tabsBar
 
-    -- Мягкие углы для кнопок
     local btnCorner = Instance.new("UICorner")
     btnCorner.CornerRadius = UDim.new(0, 6)
     btnCorner.Parent = btn
@@ -161,9 +343,8 @@ for i, name in ipairs(tabNames) do
     end)
 end
 
--- Устанавливаем начальное состояние (активна Aim)
 tabButtons["Aim"].BackgroundColor3 = Color3.fromRGB(60, 60, 70)
 tabButtons["Aim"].BackgroundTransparency = 0.1
 tabButtons["Aim"].TextColor3 = Color3.fromRGB(255, 255, 255)
 
-print("✅ Zertyx Menu с вкладками Aim и Esp загружен!")
+print("✅ Zertyx Menu (Auto Aim) загружен!")
