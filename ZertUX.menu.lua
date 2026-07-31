@@ -1,5 +1,5 @@
 -- =====================================================
---  Zertyx Menu (с отладочным ESP + вывод структуры)
+--  Zertyx Menu (ESP с динамичным RGB и белым Box)
 -- =====================================================
 
 local player = game:GetService("Players").LocalPlayer
@@ -164,7 +164,7 @@ rightLabelAim.TextYAlignment = Enum.TextYAlignment.Center
 rightLabelAim.Parent = rightHalfAim
 
 -- ============================================================
---  ВКЛАДКА ESP (с отладкой)
+--  ВКЛАДКА ESP (с динамичным RGB и белым Box)
 -- ============================================================
 local espPage = pages["Esp"]
 local espEnabled = false
@@ -177,37 +177,7 @@ local espObjects = {}
 local hasDrawing = pcall(function() return Drawing end) and Drawing ~= nil
 print("🔍 Drawing API доступен:", hasDrawing)
 
--- Функция для вывода структуры персонажа
-local function printCharacterStructure(plr)
-    local char = plr.Character
-    if not char then
-        print("❌ Персонаж игрока", plr.Name, "отсутствует")
-        return
-    end
-    print("📌 Структура персонажа", plr.Name, ":")
-    print("  - Дочерние объекты:")
-    for _, child in pairs(char:GetChildren()) do
-        print("    -", child.Name, "(", child.ClassName, ")")
-    end
-    local hasHumanoid = char:FindFirstChild("Humanoid")
-    local hasHead = char:FindFirstChild("Head")
-    local hasHRP = char:FindFirstChild("HumanoidRootPart")
-    local hasRoot = char:FindFirstChild("RootPart")
-    local hasUpperTorso = char:FindFirstChild("UpperTorso")
-    local hasTorso = char:FindFirstChild("Torso")
-    print("  - Ключевые части:")
-    print("    - Humanoid:", hasHumanoid and "✅" or "❌")
-    if hasHumanoid then
-        print("      Health:", hasHumanoid.Health)
-    end
-    print("    - Head:", hasHead and "✅" or "❌")
-    print("    - HumanoidRootPart:", hasHRP and "✅" or "❌")
-    print("    - RootPart:", hasRoot and "✅" or "❌")
-    print("    - UpperTorso:", hasUpperTorso and "✅" or "❌")
-    print("    - Torso:", hasTorso and "✅" or "❌")
-end
-
--- Функция для поиска корневой части (универсальная)
+-- Функция для поиска корневой части
 local function getRootPart(character)
     if not character then return nil end
     local root = character:FindFirstChild("HumanoidRootPart")
@@ -226,7 +196,7 @@ local function isEnemy(plr)
     if not plr.Character then return false end
     local humanoid = plr.Character:FindFirstChild("Humanoid")
     if not humanoid then
-        return true -- если нет Humanoid, считаем врагом (возможно, NPC)
+        return true -- если нет Humanoid, считаем врагом
     end
     if humanoid.Health <= 0 then return false end
     if player.Team and plr.Team and player.Team == plr.Team then
@@ -251,33 +221,14 @@ local function clearESP()
     espObjects = {}
 end
 
--- Дамп структуры всех игроков при запуске
-local function dumpAllPlayers()
-    print("========== ДАМП ВСЕХ ИГРОКОВ ==========")
-    for _, plr in pairs(Players:GetPlayers()) do
-        printCharacterStructure(plr)
-    end
-    print("========================================")
-end
-
-task.wait(1) -- даём игре загрузить персонажей
-dumpAllPlayers()
-
--- Обновляем дамп при появлении новых игроков
-Players.PlayerAdded:Connect(function(plr)
-    plr.CharacterAdded:Connect(function()
-        task.wait(0.5)
-        print("🆕 Новый игрок:", plr.Name)
-        printCharacterStructure(plr)
-    end)
-end)
+-- Переменная для динамичного цвета
+local hue = 0
 
 -- Основной цикл обновления ESP
 RunService.RenderStepped:Connect(function()
-    local playersFound = 0
-    local enemiesFound = 0
-    local createdHighlight = 0
-    local createdBox = 0
+    -- Обновляем hue для радужного эффекта (0.5-0.7 для сине-голубого спектра)
+    hue = (hue + 0.002) % 1
+    local dynamicColor = Color3.fromHSV(hue, 0.8, 1)  -- насыщенный, яркий
 
     -- Удаляем объекты для мёртвых или не-врагов
     for plr, data in pairs(espObjects) do
@@ -294,11 +245,9 @@ RunService.RenderStepped:Connect(function()
 
     -- Обходим всех игроков
     for _, plr in pairs(Players:GetPlayers()) do
-        playersFound = playersFound + 1
         if not isEnemy(plr) then
             continue
         end
-        enemiesFound = enemiesFound + 1
         local character = plr.Character
         if not character then continue end
         local humanoid = character:FindFirstChild("Humanoid")
@@ -315,20 +264,22 @@ RunService.RenderStepped:Connect(function()
         end
         local data = espObjects[plr]
 
-        -- Highlight
+        -- Highlight с динамичным цветом
         if espEnabled then
             if not data.highlight then
                 local highlight = Instance.new("Highlight")
                 highlight.Adornee = character
-                highlight.FillColor = Color3.fromRGB(255, 0, 0)
-                highlight.FillTransparency = 0.5
-                highlight.OutlineColor = Color3.fromRGB(255, 0, 0)
-                highlight.OutlineTransparency = 0.3
+                highlight.FillColor = dynamicColor
+                highlight.FillTransparency = 0.4
+                highlight.OutlineColor = dynamicColor
+                highlight.OutlineTransparency = 0.2
                 highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
                 highlight.Parent = character
                 data.highlight = highlight
-                createdHighlight = createdHighlight + 1
-                print("✅ Highlight создан для", plr.Name)
+            else
+                -- Обновляем цвет каждый кадр
+                data.highlight.FillColor = dynamicColor
+                data.highlight.OutlineColor = dynamicColor
             end
         else
             if data.highlight then
@@ -337,29 +288,28 @@ RunService.RenderStepped:Connect(function()
             end
         end
 
-        -- 2D Box
+        -- 2D Box (белый, увеличенный, обводит всего персонажа)
         if boxEnabled and hasDrawing then
             if not data.boxLines then
                 data.boxLines = {}
                 for i = 1, 4 do
                     local line = Drawing.new("Line")
-                    line.Color = Color3.fromRGB(255, 0, 0)
-                    line.Thickness = 2
-                    line.Transparency = 0.7
+                    line.Color = Color3.fromRGB(255, 255, 255)  -- белый
+                    line.Thickness = 3                         -- чуть толще
+                    line.Transparency = 0.6
                     line.Visible = false
                     table.insert(data.boxLines, line)
                 end
-                createdBox = createdBox + 1
-                print("✅ 2D Box создан для", plr.Name)
             end
-            -- Обновляем позиции
+            -- Вычисляем размеры бокса, чтобы обводить всего персонажа
             local headPos = head.Position
             local rootPos = rootPart.Position
             local height = (headPos - rootPos).Magnitude
-            local width = height * 0.4
+            -- Увеличиваем ширину бокса (коэффициент 0.8 вместо 0.4)
+            local width = height * 0.8
 
-            local topPos = headPos + Vector3.new(0, 0.5, 0)
-            local bottomPos = rootPos - Vector3.new(0, 0.5, 0)
+            local topPos = headPos + Vector3.new(0, 1, 0)          -- выше головы
+            local bottomPos = rootPos - Vector3.new(0, 0.5, 0)     -- ниже ног
 
             local topScreen, topVis = Camera:WorldToViewportPoint(topPos)
             local bottomScreen, bottomVis = Camera:WorldToViewportPoint(bottomPos)
@@ -369,7 +319,7 @@ RunService.RenderStepped:Connect(function()
                 local bottomY = bottomScreen.Y
                 local centerX = (topScreen.X + bottomScreen.X) / 2
                 local boxHeight = math.abs(topY - bottomY)
-                local boxWidth = boxHeight * 0.4
+                local boxWidth = boxHeight * 0.6                  -- ширина относительно высоты
 
                 local leftX = centerX - boxWidth / 2
                 local rightX = centerX + boxWidth / 2
@@ -406,20 +356,10 @@ RunService.RenderStepped:Connect(function()
             end
         end
     end
-
-    -- Выводим сводку раз в 5 секунд
-    if tick() % 5 < 0.05 then
-        print("📊 Статистика кадра:")
-        print("  - Всего игроков:", playersFound)
-        print("  - Врагов (потенциальных целей):", enemiesFound)
-        print("  - Создано Highlight:", createdHighlight)
-        print("  - Создано 2D Box:", createdBox)
-        print("  - Объектов ESP в памяти:", table.count(espObjects) or "неизвестно")
-    end
 end)
 
 -- ============================================================
---  ИНТЕРФЕЙС ВКЛАДКИ ESP (переключатели)
+--  ИНТЕРФЕЙС ВКЛАДКИ ESP
 -- ============================================================
 local espPage = pages["Esp"]
 
@@ -645,4 +585,4 @@ tabButtons["Aim"].BackgroundColor3 = Color3.fromRGB(60, 60, 70)
 tabButtons["Aim"].BackgroundTransparency = 0.1
 tabButtons["Aim"].TextColor3 = Color3.fromRGB(255, 255, 255)
 
-print("✅ Zertyx Menu с отладочным ESP загружен!")
+print("✅ Zertyx Menu (ESP с динамичным RGB и белым Box) загружен!")
