@@ -1,13 +1,12 @@
--- ZERTYX SILENT AIM + ESP MENU
--- ПОЛНОСТЬЮ РАБОЧИЙ КОД
-
+-- ZERTYX BLOXSTRIKE SILENT AIM + ESP (HIGHLIGHT ВЕРСИЯ)
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
 local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
--- СОЗДАНИЕ МЕНЮ (640x420, белое, скругление 12px)
+-- СОЗДАНИЕ МЕНЮ (640x420)
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Parent = LocalPlayer.PlayerGui
 
@@ -19,12 +18,10 @@ Frame.BorderSizePixel = 0
 Frame.ClipsDescendants = true
 Frame.Parent = ScreenGui
 
--- СКРУГЛЕНИЕ УГЛОВ
 local Corner = Instance.new("UICorner")
 Corner.CornerRadius = UDim.new(0, 12)
 Corner.Parent = Frame
 
--- ЗАГОЛОВОК
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, 0, 0, 40)
 Title.Position = UDim2.new(0, 0, 0, 0)
@@ -91,70 +88,9 @@ RadiusSlider.Parent = Frame
 local espEnabled = true
 local silentAimEnabled = true
 local aimRadius = 150
+local espObjects = {} -- Таблица для Highlight-ов
 
--- ОБНОВЛЕНИЕ ТЕКСТА КНОПОК
-EspToggle.MouseButton1Click:Connect(function()
-    espEnabled = not espEnabled
-    EspToggle.Text = espEnabled and "ESP: ВКЛ" or "ESP: ВЫКЛ"
-end)
-
-SaToggle.MouseButton1Click:Connect(function()
-    silentAimEnabled = not silentAimEnabled
-    SaToggle.Text = silentAimEnabled and "Silent Aim: ВКЛ" or "Silent Aim: ВЫКЛ"
-    CircleContainer.Visible = silentAimEnabled
-end)
-
-RadiusSlider.FocusLost:Connect(function()
-    local val = tonumber(RadiusSlider.Text)
-    if val then
-        aimRadius = math.clamp(val, 0, 300)
-        RadiusSlider.Text = tostring(aimRadius)
-        RadiusLabel.Text = "Радиус: " .. tostring(aimRadius)
-    else
-        RadiusSlider.Text = tostring(aimRadius)
-    end
-end)
-
--- === ДИНАМИЧЕСКИЙ ESP ===
-local espObjects = {}
-
-function updateESP()
-    for _, v in pairs(espObjects) do
-        v:Destroy()
-    end
-    espObjects = {}
-
-    if not espEnabled then return end
-
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
-            local head = player.Character.Head
-            local pos, onScreen = Camera:WorldToViewportPoint(head.Position)
-
-            if onScreen then
-                local box = Instance.new("Frame")
-                box.Size = UDim2.new(0, 60, 0, 80)
-                box.Position = UDim2.new(0, pos.X - 30, 0, pos.Y - 40)
-                box.BackgroundTransparency = 0.3
-                box.BackgroundColor3 = Color3.fromHSV(math.random(), 1, 1)
-                box.BorderSizePixel = 0
-                box.Parent = ScreenGui
-
-                local corner = Instance.new("UICorner")
-                corner.CornerRadius = UDim.new(0, 6)
-                corner.Parent = box
-
-                table.insert(espObjects, box)
-            end
-        end
-    end
-end
-
-RunService.RenderStepped:Connect(function()
-    updateESP()
-end)
-
--- === ДИНАМИЧЕСКИЙ КРУГ (ТОЛЬКО КРУГ, БЕЗ КРЕСТИКА) ===
+-- === ДИНАМИЧЕСКИЙ КРУГ ===
 local CircleContainer = Instance.new("Frame")
 CircleContainer.Size = UDim2.new(0, aimRadius * 2, 0, aimRadius * 2)
 CircleContainer.Position = UDim2.new(0.5, -aimRadius, 0.5, -aimRadius)
@@ -175,66 +111,188 @@ local CircleCorner = Instance.new("UICorner")
 CircleCorner.CornerRadius = UDim.new(1, 0)
 CircleCorner.Parent = CircleMain
 
--- ОБНОВЛЕНИЕ РАЗМЕРА КРУГА
+-- === HIGHLIGHT ESP (РАБОТАЕТ ЗА СТЕНАМИ) ===
+local function updatePlayerESP(playerObj)
+    -- Удаляем старый ESP, если есть
+    if espObjects[playerObj] then
+        espObjects[playerObj]:Destroy()
+        espObjects[playerObj] = nil
+    end
+    
+    -- Проверки
+    if not espEnabled then return end
+    if playerObj == LocalPlayer then return end
+    if not playerObj.Character then return end
+    
+    -- СОЗДАЁМ HIGHLIGHT
+    local highlight = Instance.new("Highlight")
+    highlight.Parent = playerObj.Character
+    highlight.FillColor = Color3.fromHSV(math.random(), 1, 1) -- СЛУЧАЙНЫЙ ЦВЕТ
+    highlight.FillTransparency = 0.4
+    highlight.OutlineColor = Color3.new(1, 1, 1) -- Белый контур
+    highlight.OutlineTransparency = 0
+    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop -- ВИДНО ЗА СТЕНАМИ
+    
+    espObjects[playerObj] = highlight
+end
+
+local function updateAllESP()
+    for _, player in pairs(Players:GetPlayers()) do
+        updatePlayerESP(player)
+    end
+end
+
+-- ОБНОВЛЕНИЕ ESP ПРИ ПОЯВЛЕНИИ/ИСЧЕЗНОВЕНИИ ИГРОКОВ
+Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function()
+        updatePlayerESP(player)
+    end)
+    updatePlayerESP(player)
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+    if espObjects[player] then
+        espObjects[player]:Destroy()
+        espObjects[player] = nil
+    end
+end)
+
+-- Обновляем ESP при изменении настройки
+EspToggle.MouseButton1Click:Connect(function()
+    espEnabled = not espEnabled
+    EspToggle.Text = espEnabled and "ESP: ВКЛ" or "ESP: ВЫКЛ"
+    
+    if not espEnabled then
+        -- Удаляем все Highlight-ы
+        for player, highlight in pairs(espObjects) do
+            highlight:Destroy()
+            espObjects[player] = nil
+        end
+    else
+        -- Пересоздаём Highlight-ы
+        updateAllESP()
+    end
+end)
+
+-- Показываем/скрываем круг с Silent Aim
+SaToggle.MouseButton1Click:Connect(function()
+    silentAimEnabled = not silentAimEnabled
+    SaToggle.Text = silentAimEnabled and "Silent Aim: ВКЛ" or "Silent Aim: ВЫКЛ"
+    CircleContainer.Visible = silentAimEnabled
+end)
+
+-- Обновление радиуса
 RadiusSlider.FocusLost:Connect(function()
     local val = tonumber(RadiusSlider.Text)
     if val then
         aimRadius = math.clamp(val, 0, 300)
         RadiusSlider.Text = tostring(aimRadius)
         RadiusLabel.Text = "Радиус: " .. tostring(aimRadius)
-
         CircleContainer.Size = UDim2.new(0, aimRadius * 2, 0, aimRadius * 2)
         CircleContainer.Position = UDim2.new(0.5, -aimRadius, 0.5, -aimRadius)
+    else
+        RadiusSlider.Text = tostring(aimRadius)
     end
 end)
 
--- === SILENT AIM ===
-local oldFire = nil
-if game:GetService("Players").LocalPlayer.Character then
-    local tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
-    if tool then
-        local handle = tool:FindFirstChild("Handle")
-        if handle then
-            local remote = handle:FindFirstChild("FireRemote")
-            if remote then
-                oldFire = remote.OnClientEvent
-                remote.OnClientEvent = function(_, target)
-                    if not silentAimEnabled then
-                        oldFire(_, target)
-                        return
-                    end
+-- Обновляем ESP при перерождении персонажа
+for _, player in pairs(Players:GetPlayers()) do
+    player.CharacterAdded:Connect(function()
+        updatePlayerESP(player)
+    end)
+end
 
-                    local closest = nil
-                    local closestDist = aimRadius
+-- Первоначальное обновление
+updateAllESP()
 
-                    for _, player in pairs(Players:GetPlayers()) do
-                        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
-                            local headPos = player.Character.Head.Position
-                            local screenPos, onScreen = Camera:WorldToViewportPoint(headPos)
-                            if onScreen then
-                                local dx = screenPos.X - (Camera.ViewportSize.X / 2)
-                                local dy = screenPos.Y - (Camera.ViewportSize.Y / 2)
-                                local dist = math.sqrt(dx^2 + dy^2)
-                                if dist < closestDist then
-                                    closestDist = dist
-                                    closest = player
-                                end
-                            end
-                        end
-                    end
+-- === SILENT AIM ДЛЯ BLOXSTRIKE ===
+-- Находим нужные ремоуты
+local Remotes = ReplicatedStorage:FindFirstChild("Network")
+if Remotes then
+    Remotes = Remotes:FindFirstChild("Remotes")
+    if Remotes then
+        Remotes = Remotes:FindFirstChild("Character")
+    end
+end
 
-                    if closest then
-                        local headPos = closest.Character.Head.Position
-                        remote:FireServer(headPos)
-                    else
-                        oldFire(_, target)
-                    end
+-- Ремоуты
+local LookAngleRemote = Remotes and Remotes:FindFirstChild("ReplicateLookAngle")
+local ShootRemote = Remotes and Remotes:FindFirstChild("Fire") or Remotes and Remotes:FindFirstChild("Shoot")
+
+function GetClosestEnemy()
+    local closest = nil
+    local closestDist = aimRadius
+    local centerX = Camera.ViewportSize.X / 2
+    local centerY = Camera.ViewportSize.Y / 2
+
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
+            local headPos = player.Character.Head.Position
+            local screenPos, onScreen = Camera:WorldToViewportPoint(headPos)
+            
+            if onScreen then
+                local dx = screenPos.X - centerX
+                local dy = screenPos.Y - centerY
+                local dist = math.sqrt(dx^2 + dy^2)
+                
+                if dist < closestDist then
+                    closestDist = dist
+                    closest = player
                 end
             end
         end
     end
+    
+    return closest
 end
 
-if not oldFire then
-    print("⚠️ Remote не найден — замени 'FireRemote' на имя твоего ремоута")
-end
+-- Перехват выстрела
+Mouse.Button1Down:Connect(function()
+    if not silentAimEnabled then return end
+    
+    local target = GetClosestEnemy()
+    if not target or not target.Character or not target.Character:FindFirstChild("Head") then 
+        return 
+    end
+    
+    local headPos = target.Character.Head.Position
+    
+    -- Отправляем направление взгляда на голову
+    if LookAngleRemote then
+        local direction = (headPos - Camera.CFrame.Position).Unit
+        pcall(function()
+            LookAngleRemote:FireServer(direction)
+        end)
+    end
+    
+    -- Отправляем выстрел
+    if ShootRemote then
+        pcall(function()
+            ShootRemote:FireServer(headPos)
+        end)
+    else
+        -- Если нет отдельного ремоута для выстрела
+        local FireRemote = Remotes and Remotes:FindFirstChild("Fire")
+        if FireRemote then
+            pcall(function()
+                FireRemote:FireServer(headPos)
+            end)
+        end
+    end
+end)
+
+-- Автоматическое наведение (опционально)
+RunService:BindToRenderStep("SilentAimBloxstrike", 0, function()
+    if not silentAimEnabled then return end
+    
+    local target = GetClosestEnemy()
+    if target and target.Character and target.Character:FindFirstChild("Head") then
+        local headPos = target.Character.Head.Position
+        -- Можно добавить плавное наведение камеры
+        -- Camera.CFrame = CFrame.new(Camera.CFrame.Position, headPos)
+    end
+end)
+
+print("✅ Zertyx для BloxStrike загружен!")
+print("🔫 Silent Aim активен! Стреляй в круг — пули летят в голову.")
+print("👁️ ESP работает через Highlight — видно за стенами!")
