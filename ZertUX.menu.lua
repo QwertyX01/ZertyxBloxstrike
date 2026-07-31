@@ -1,5 +1,5 @@
 -- =====================================================
---  Zertyx Menu (ESP + Health Bar + Third Person)
+--  Zertyx Menu (ESP, Health Bar, Third Person) – переработан
 -- =====================================================
 
 local player = game:GetService("Players").LocalPlayer
@@ -164,52 +164,40 @@ rightLabelAim.TextYAlignment = Enum.TextYAlignment.Center
 rightLabelAim.Parent = rightHalfAim
 
 -- ============================================================
---  ВКЛАДКА ESP (с чекбоксами, Health Bar, Third Person)
+--  ВКЛАДКА ESP (с чекбоксами)
 -- ============================================================
 local espPage = pages["Esp"]
+
+-- Переменные состояний
 local espEnabled = false
 local boxEnabled = false
 local healthBarEnabled = false
 local thirdPersonEnabled = false
 
--- Хранилище объектов ESP
+-- Хранилище объектов
 local espObjects = {}
-
--- Проверка Drawing API
+local hue = 0
 local hasDrawing = pcall(function() return Drawing end) and Drawing ~= nil
 
--- Функция для поиска корневой части
-local function getRootPart(character)
-    if not character then return nil end
-    local root = character:FindFirstChild("HumanoidRootPart")
-    if root then return root end
-    root = character:FindFirstChild("RootPart")
-    if root then return root end
-    root = character:FindFirstChild("UpperTorso")
-    if root then return root end
-    root = character:FindFirstChild("Torso")
-    return root
-end
-
--- Проверка врага
+-- ============================================================
+--  ЛОГИКА ESP
+-- ============================================================
 local function isEnemy(plr)
     if plr == player then return false end
     if not plr.Character then return false end
     local humanoid = plr.Character:FindFirstChild("Humanoid")
-    if not humanoid then
-        return true
-    end
+    if not humanoid then return true end
     if humanoid.Health <= 0 then return false end
-    if player.Team and plr.Team and player.Team == plr.Team then
-        return false
-    end
-    if player.TeamColor and plr.TeamColor and player.TeamColor == plr.TeamColor then
-        return false
-    end
+    if player.Team and plr.Team and player.Team == plr.Team then return false end
+    if player.TeamColor and plr.TeamColor and player.TeamColor == plr.TeamColor then return false end
     return true
 end
 
--- Очистка ESP
+local function getRootPart(character)
+    if not character then return nil end
+    return character:FindFirstChild("HumanoidRootPart") or character:FindFirstChild("RootPart") or character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso")
+end
+
 local function clearESP()
     for _, data in pairs(espObjects) do
         if data.highlight then data.highlight:Destroy() end
@@ -225,14 +213,13 @@ local function clearESP()
     espObjects = {}
 end
 
--- Переменная для динамичного цвета
-local hue = 0
-
--- Основной цикл обновления ESP и Health Bar
-RunService.RenderStepped:Connect(function()
+-- Функция обновления всех объектов (вызывается каждый кадр)
+local function updateESP()
+    -- Обновляем hue для динамического цвета
     hue = (hue + 0.002) % 1
     local dynamicColor = Color3.fromHSV(hue, 0.8, 1)
 
+    -- Удаляем объекты для невалидных игроков
     for plr, data in pairs(espObjects) do
         if not plr or not plr.Parent or not isEnemy(plr) or not plr.Character then
             if data.highlight then data.highlight:Destroy() end
@@ -248,6 +235,7 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
+    -- Обходим всех игроков
     for _, plr in pairs(Players:GetPlayers()) do
         if not isEnemy(plr) then continue end
         local character = plr.Character
@@ -264,7 +252,7 @@ RunService.RenderStepped:Connect(function()
         end
         local data = espObjects[plr]
 
-        -- Highlight
+        -- == Highlight ==
         if espEnabled then
             if not data.highlight then
                 local highlight = Instance.new("Highlight")
@@ -276,6 +264,7 @@ RunService.RenderStepped:Connect(function()
                 highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
                 highlight.Parent = character
                 data.highlight = highlight
+                print("✅ Highlight создан для", plr.Name)
             else
                 data.highlight.FillColor = dynamicColor
                 data.highlight.OutlineColor = dynamicColor
@@ -287,7 +276,7 @@ RunService.RenderStepped:Connect(function()
             end
         end
 
-        -- 2D Box
+        -- == 2D Box ==
         if boxEnabled and hasDrawing then
             if not data.boxLines then
                 data.boxLines = {}
@@ -299,7 +288,9 @@ RunService.RenderStepped:Connect(function()
                     line.Visible = false
                     table.insert(data.boxLines, line)
                 end
+                print("✅ 2D Box создан для", plr.Name)
             end
+            -- Обновляем позиции
             local headPos = head.Position
             local rootPos = rootPart.Position
             local height = (headPos - rootPos).Magnitude
@@ -353,7 +344,7 @@ RunService.RenderStepped:Connect(function()
             end
         end
 
-        -- Health Bar
+        -- == Health Bar ==
         if healthBarEnabled then
             if not data.healthBar then
                 local billboard = Instance.new("BillboardGui")
@@ -391,6 +382,7 @@ RunService.RenderStepped:Connect(function()
                 data.healthBar = billboard
                 data.healthFill = fill
                 data.healthLabel = label
+                print("✅ Health Bar создан для", plr.Name)
             end
 
             local health = humanoid.Health
@@ -408,20 +400,21 @@ RunService.RenderStepped:Connect(function()
             end
         end
     end
-end)
+end
 
--- Third Person (вид от третьего лица)
-local thirdPersonOffset = Vector3.new(0, 3, -8)  -- смещение камеры позади игрока
+-- Запускаем обновление в RenderStepped
+RunService.RenderStepped:Connect(updateESP)
 
+-- == Third Person ==
+local thirdPersonOffset = Vector3.new(0, 3, -8)
 RunService.RenderStepped:Connect(function()
     if not thirdPersonEnabled then return end
     local character = player.Character
     if not character then return end
     local root = character:FindFirstChild("HumanoidRootPart")
     if not root then return end
-
     local camPos = root.Position + thirdPersonOffset
-    local lookAt = root.Position + Vector3.new(0, 2, 0)  -- смотреть на голову
+    local lookAt = root.Position + Vector3.new(0, 2, 0)
     Camera.CFrame = CFrame.new(camPos, lookAt)
 end)
 
@@ -444,7 +437,7 @@ leftHalfEsp.Position = UDim2.new(0, 5, 0, 0)
 leftHalfEsp.BackgroundTransparency = 1
 leftHalfEsp.Parent = espPage
 
--- Функция создания чекбокса (сдвигаем влево, компактно)
+-- Функция создания чекбокса
 local function createCheckbox(parent, text, yPos, defaultValue, callback)
     local row = Instance.new("Frame")
     row.Size = UDim2.new(1, 0, 0, 26)
@@ -497,6 +490,8 @@ local function createCheckbox(parent, text, yPos, defaultValue, callback)
         checkbox.BackgroundColor3 = state and Color3.fromRGB(0, 180, 0) or Color3.fromRGB(40, 40, 45)
         callback(state)
         playClickSound()
+        -- При изменении состояния принудительно обновляем ESP (чтобы сразу применить)
+        updateESP()
     end)
 
     if defaultValue then
@@ -506,7 +501,7 @@ local function createCheckbox(parent, text, yPos, defaultValue, callback)
     return checkbox
 end
 
--- Чекбоксы
+-- Создаём чекбоксы
 local espCheckbox = createCheckbox(leftHalfEsp, "ESP", 10, false, function(state)
     espEnabled = state
 end)
@@ -522,7 +517,7 @@ end)
 local thirdPersonCheckbox = createCheckbox(leftHalfEsp, "Third Person", 100, false, function(state)
     thirdPersonEnabled = state
     if not state then
-        -- При выключении возвращаем камеру в исходное состояние (можно просто остановить обновление)
+        -- Возвращаем управление камерой игроку (просто ничего не делаем)
     end
 end)
 
@@ -634,4 +629,4 @@ tabButtons["Aim"].BackgroundColor3 = Color3.fromRGB(60, 60, 70)
 tabButtons["Aim"].BackgroundTransparency = 0.1
 tabButtons["Aim"].TextColor3 = Color3.fromRGB(255, 255, 255)
 
-print("✅ Zertyx Menu (ESP, Health Bar, Third Person) загружен!")
+print("✅ Zertyx Menu (полностью переработан) загружен!")
