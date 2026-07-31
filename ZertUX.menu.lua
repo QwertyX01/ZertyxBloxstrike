@@ -1,5 +1,5 @@
 -- =====================================================
---  Zertyx Menu (с отладкой ESP)
+--  Zertyx Menu (ESP стабильный)
 -- =====================================================
 
 local player = game:GetService("Players").LocalPlayer
@@ -151,7 +151,7 @@ rightLabelAim.TextYAlignment = Enum.TextYAlignment.Center
 rightLabelAim.Parent = rightHalfAim
 
 -- ============================================================
---  ВКЛАДКА ESP (с отладкой)
+--  ВКЛАДКА ESP
 -- ============================================================
 local espPage = pages["Esp"]
 local espEnabled = false
@@ -161,13 +161,13 @@ local espObjects = {}
 local hue = 0
 local hasDrawing = pcall(function() return Drawing end) and Drawing ~= nil
 
--- Упрощённая проверка врага
+-- УПРОЩЁННАЯ ПРОВЕРКА ВРАГА (без команд, без Health)
 local function isEnemy(plr)
     if plr == player then return false end
     if not plr.Character then return false end
     local humanoid = plr.Character:FindFirstChild("Humanoid")
-    if not humanoid or humanoid.Health <= 0 then return false end
-    -- Игнорируем команды для теста
+    if not humanoid then return false end
+    -- Считаем врагами всех, кроме себя, даже мёртвых (но мёртвые не имеют HumanoidRootPart)
     return true
 end
 
@@ -180,9 +180,9 @@ local function updateESP()
     hue = (hue + 0.002) % 1
     local dynamicColor = Color3.fromHSV(hue, 0.8, 1)
 
-    -- Удаляем объекты для невалидных игроков
+    -- Удаляем объекты только если игрок мёртв или нет персонажа
     for plr, data in pairs(espObjects) do
-        if not plr or not plr.Parent or not isEnemy(plr) or not plr.Character then
+        if not plr or not plr.Parent or not plr.Character then
             if data.highlight then data.highlight:Destroy() end
             if data.boxLines then
                 for _, line in pairs(data.boxLines) do
@@ -198,7 +198,21 @@ local function updateESP()
         local character = plr.Character
         if not character then continue end
         local humanoid = character:FindFirstChild("Humanoid")
-        if not humanoid or humanoid.Health <= 0 then continue end
+        if not humanoid then continue end
+        -- Если игрок мёртв, удаляем объекты (но не удаляем, чтобы он не пропал сразу)
+        if humanoid.Health <= 0 then
+            local data = espObjects[plr]
+            if data then
+                if data.highlight then data.highlight:Destroy() end
+                if data.boxLines then
+                    for _, line in pairs(data.boxLines) do
+                        line:Remove()
+                    end
+                end
+                espObjects[plr] = nil
+            end
+            continue
+        end
 
         local rootPart = getRootPart(character)
         local head = character:FindFirstChild("Head")
@@ -229,8 +243,8 @@ local function updateESP()
         else
             if data.highlight then
                 data.highlight:Destroy()
-                print("❌ Highlight удалён для", plr.Name, "(ESP выключен)")
                 data.highlight = nil
+                print("❌ Highlight удалён для", plr.Name)
             end
         end
 
@@ -248,7 +262,6 @@ local function updateESP()
                 end
                 print("✅ 2D Box создан для", plr.Name)
             end
-            -- Обновляем позиции
             local headPos = head.Position
             local rootPos = rootPart.Position
             local height = (headPos - rootPos).Magnitude
@@ -298,18 +311,17 @@ local function updateESP()
                 for _, line in pairs(data.boxLines) do
                     line:Remove()
                 end
-                print("❌ 2D Box удалён для", plr.Name, "(Box выключен)")
                 data.boxLines = nil
+                print("❌ 2D Box удалён для", plr.Name)
             end
         end
     end
 end
 
--- Запускаем обновление в RenderStepped
 RunService.RenderStepped:Connect(updateESP)
 
 -- ============================================================
---  ИНТЕРФЕЙС ВКЛАДКИ ESP (чекбоксы с отладкой)
+--  ИНТЕРФЕЙС ВКЛАДКИ ESP
 -- ============================================================
 local espPage = pages["Esp"]
 
@@ -388,7 +400,6 @@ local function createCheckbox(parent, text, yPos, defaultValue, callback)
     return checkbox
 end
 
--- Создаём чекбоксы с отладкой
 createCheckbox(leftHalfEsp, "ESP", 10, false, function(state)
     espEnabled = state
     print("📌 espEnabled =", espEnabled)
@@ -399,7 +410,6 @@ createCheckbox(leftHalfEsp, "2D Box", 40, false, function(state)
     print("📌 boxEnabled =", boxEnabled)
 end)
 
--- Правая половина
 local rightHalfEsp = Instance.new("Frame")
 rightHalfEsp.Size = UDim2.new(0.5, -5, 1, 0)
 rightHalfEsp.Position = UDim2.new(0.5, 5, 0, 0)
@@ -418,7 +428,7 @@ rightLabelEsp.TextYAlignment = Enum.TextYAlignment.Center
 rightLabelEsp.Parent = rightHalfEsp
 
 -- ============================================================
---  НИЖНИЕ ВКЛАДКИ (с анимацией и звуком)
+--  НИЖНИЕ ВКЛАДКИ
 -- ============================================================
 local tabsBar = Instance.new("Frame")
 tabsBar.Name = "TabsBar"
@@ -505,4 +515,4 @@ tabButtons["Aim"].BackgroundColor3 = Color3.fromRGB(60, 60, 70)
 tabButtons["Aim"].BackgroundTransparency = 0.1
 tabButtons["Aim"].TextColor3 = Color3.fromRGB(255, 255, 255)
 
-print("✅ Zertyx Menu с отладкой загружен!")
+print("✅ Zertyx Menu (стабильный ESP) загружен!")
