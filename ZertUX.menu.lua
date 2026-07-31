@@ -1,4 +1,4 @@
--- ZERTYX BLOXSTRIKE (УНИВЕРСАЛЬНЫЙ SILENT AIM + ESP)
+-- ZERTYX BLOXSTRIKE (ПОЛНАЯ ВЕРСИЯ С ВКЛАДКАМИ)
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Camera = workspace.CurrentCamera
@@ -19,13 +19,13 @@ Frame.BorderSizePixel = 1
 Frame.BorderColor3 = Color3.new(0.8, 0.8, 0.8)
 Frame.Parent = ScreenGui
 
--- === ДРАГ МЕНЮ ===
+-- ДРАГ МЕНЮ
 local dragging = false
 local dragStart = nil
 local startPos = nil
 
 Frame.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         dragging = true
         dragStart = Vector2.new(input.Position.X, input.Position.Y)
         startPos = Frame.Position
@@ -33,13 +33,13 @@ Frame.InputBegan:Connect(function(input)
 end)
 
 Frame.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         dragging = false
     end
 end)
 
 UserInputService.InputChanged:Connect(function(input)
-    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
         local delta = Vector2.new(input.Position.X, input.Position.Y) - dragStart
         Frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
     end
@@ -56,6 +56,16 @@ TabContainer.Position = UDim2.new(0, 0, 0, 0)
 TabContainer.BackgroundTransparency = 1
 TabContainer.Parent = Frame
 
+-- КОНТЕЙНЕР ДЛЯ КОНТЕНТА
+local ContentContainer = Instance.new("Frame")
+ContentContainer.Size = UDim2.new(1, -20, 1, -60)
+ContentContainer.Position = UDim2.new(0, 10, 0, 50)
+ContentContainer.BackgroundColor3 = Color3.new(1, 1, 1)
+ContentContainer.BackgroundTransparency = 0
+ContentContainer.BorderSizePixel = 0
+ContentContainer.Parent = Frame
+
+-- СОЗДАЁМ ВКЛАДКИ
 for i, tabName in pairs(Tabs) do
     local tabBtn = Instance.new("TextButton")
     tabBtn.Size = UDim2.new(0, 167, 1, 0)
@@ -82,12 +92,6 @@ for i, tabName in pairs(Tabs) do
         UpdateTabContent(tabName)
     end)
 end
-
-local ContentContainer = Instance.new("Frame")
-ContentContainer.Size = UDim2.new(1, -20, 1, -60)
-ContentContainer.Position = UDim2.new(0, 10, 0, 50)
-ContentContainer.BackgroundTransparency = 1
-ContentContainer.Parent = Frame
 
 -- === ПЕРЕМЕННЫЕ ===
 local espEnabled = true
@@ -286,6 +290,34 @@ if LookAngleRemote then
     end
 end
 
+-- === ПЕРЕХВАТ ВЫСТРЕЛА (ПК И ТЕЛЕФОН) ===
+local function OnShoot()
+    if not silentAimEnabled then return end
+    
+    local target = GetClosestEnemy()
+    if not target or not target.Character or not target.Character:FindFirstChild("Head") then 
+        return 
+    end
+    
+    local headPos = target.Character.Head.Position
+    
+    if LookAngleRemote then
+        local direction = (headPos - Camera.CFrame.Position).Unit
+        pcall(function()
+            LookAngleRemote:FireServer(direction)
+        end)
+    end
+end
+
+-- ПК
+Mouse.Button1Down:Connect(OnShoot)
+
+-- Телефон (касание)
+UserInputService.TouchStarted:Connect(function(input, processed)
+    if processed then return end
+    OnShoot()
+end)
+
 -- === HIGHLIGHT ESP ===
 local function updatePlayerESP(playerObj)
     if espObjects[playerObj] then
@@ -343,7 +375,6 @@ function UpdateTabContent(tabName)
     end
     
     if tabName == "Visuals" then
-        -- === VISUALS ===
         local VisualLabel = Instance.new("TextLabel")
         VisualLabel.Size = UDim2.new(1, 0, 0, 30)
         VisualLabel.Position = UDim2.new(0, 0, 0, 10)
@@ -381,7 +412,6 @@ function UpdateTabContent(tabName)
         end)
         
     elseif tabName == "Aim" then
-        -- === AIM ===
         local AimLabel = Instance.new("TextLabel")
         AimLabel.Size = UDim2.new(1, 0, 0, 30)
         AimLabel.Position = UDim2.new(0, 0, 0, 10)
@@ -393,7 +423,6 @@ function UpdateTabContent(tabName)
         AimLabel.TextXAlignment = Enum.TextXAlignment.Left
         AimLabel.Parent = ContentContainer
         
-        -- Silent Aim Toggle
         local SaBtn = Instance.new("TextButton")
         SaBtn.Size = UDim2.new(0, 200, 0, 40)
         SaBtn.Position = UDim2.new(0, 0, 0, 50)
@@ -412,7 +441,6 @@ function UpdateTabContent(tabName)
             UpdateCircleVisibility()
         end)
         
-        -- Радиус
         local RadiusLabel2 = Instance.new("TextLabel")
         RadiusLabel2.Size = UDim2.new(0, 100, 0, 30)
         RadiusLabel2.Position = UDim2.new(0, 0, 0, 100)
@@ -484,20 +512,9 @@ function UpdateTabContent(tabName)
             end
         end)
         
-        local RadiusDesc = Instance.new("TextLabel")
-        RadiusDesc.Size = UDim2.new(1, 0, 0, 25)
-        RadiusDesc.Position = UDim2.new(0, 0, 0, 140)
-        RadiusDesc.BackgroundTransparency = 1
-        RadiusDesc.Text = "Нажми +/- для изменения радиуса (0-300)"
-        RadiusDesc.TextColor3 = Color3.new(0.5, 0.5, 0.5)
-        RadiusDesc.TextSize = 13
-        RadiusDesc.Font = Enum.Font.Gotham
-        RadiusDesc.TextXAlignment = Enum.TextXAlignment.Left
-        RadiusDesc.Parent = ContentContainer
-        
         local CircleToggle = Instance.new("TextButton")
         CircleToggle.Size = UDim2.new(0, 200, 0, 35)
-        CircleToggle.Position = UDim2.new(0, 0, 0, 180)
+        CircleToggle.Position = UDim2.new(0, 0, 0, 150)
         CircleToggle.BackgroundColor3 = circleVisible and Color3.new(0.3, 0.8, 0.3) or Color3.new(0.8, 0.3, 0.3)
         CircleToggle.Text = circleVisible and "Круг: ВКЛ" or "Круг: ВЫКЛ"
         CircleToggle.TextColor3 = Color3.new(1, 1, 1)
@@ -514,9 +531,9 @@ function UpdateTabContent(tabName)
         
         local SilentDesc = Instance.new("TextLabel")
         SilentDesc.Size = UDim2.new(1, 0, 0, 25)
-        SilentDesc.Position = UDim2.new(0, 0, 0, 230)
+        SilentDesc.Position = UDim2.new(0, 0, 0, 200)
         SilentDesc.BackgroundTransparency = 1
-        SilentDesc.Text = "🔫 Silent Aim: пули летят в голову даже если не смотришь на врага!"
+        SilentDesc.Text = "🔫 Пули летят в голову даже если не смотришь на врага!"
         SilentDesc.TextColor3 = Color3.new(0.3, 0.6, 0.3)
         SilentDesc.TextSize = 14
         SilentDesc.Font = Enum.Font.GothamBold
@@ -571,11 +588,12 @@ function UpdateTabContent(tabName)
     end
 end
 
--- Загружаем первую вкладку
+-- ЗАГРУЖАЕМ ПЕРВУЮ ВКЛАДКУ
 UpdateTabContent("Visuals")
 
-print("✅ Zertyx с универсальным Silent Aim загружен!")
+print("✅ Zertyx с вкладками и универсальным Silent Aim загружен!")
 print("🔫 Silent Aim: пули летят в голову даже если не смотришь на врага!")
 print("🔄 Меню можно перетаскивать за любую часть")
 print("🔴 Круг красный, появляется при включении в AIM")
 print("➕➖ Радиус меняется кнопками + и -")
+print("📱 Работает на ПК и телефоне!")
