@@ -1,5 +1,5 @@
 -- =====================================================
---  Zertyx Menu (ESP + Health Bar + звук при переключении вкладок)
+--  Zertyx Menu (ESP стабильный + Health Bar)
 -- =====================================================
 
 local player = game:GetService("Players").LocalPlayer
@@ -15,7 +15,7 @@ local Players = game:GetService("Players")
 local SoundService = game:GetService("SoundService")
 
 -- ============================================================
---  ЗВУК (ТВОЯ ССЫЛКА)
+--  ЗВУК
 -- ============================================================
 local clickSound = Instance.new("Sound")
 clickSound.SoundId = "https://www.image2url.com/r2/default/audio/1785482101020-da6f6692-cbe3-48a5-8c38-900a5f825d88.mp3"
@@ -164,7 +164,7 @@ rightLabelAim.TextYAlignment = Enum.TextYAlignment.Center
 rightLabelAim.Parent = rightHalfAim
 
 -- ============================================================
---  ВКЛАДКА ESP
+--  ВКЛАДКА ESP (СТАБИЛЬНАЯ ВЕРСИЯ)
 -- ============================================================
 local espPage = pages["Esp"]
 local espEnabled = true
@@ -174,14 +174,14 @@ local healthEnabled = false
 local espObjects = {}
 local hue = 0
 local hasDrawing = pcall(function() return Drawing end) and Drawing ~= nil
-local needRefresh = false
+local refreshTimer = 0
 
 local function getRootPart(character)
     if not character then return nil end
     return character:FindFirstChild("HumanoidRootPart") or character:FindFirstChild("RootPart") or character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso")
 end
 
-local function fullRefreshESP()
+local function refreshESP()
     for plr, data in pairs(espObjects) do
         if data.highlight then data.highlight:Destroy() end
         if data.boxLines then
@@ -194,250 +194,157 @@ local function fullRefreshESP()
         end
     end
     espObjects = {}
-    needRefresh = true
 end
 
 local function updateESP()
-    if needRefresh then
-        needRefresh = false
-    end
+    refreshTimer = refreshTimer + 0.016
+    if refreshTimer < 0.5 then return end
+    refreshTimer = 0
+
+    refreshESP()
 
     hue = (hue + 0.002) % 1
     local dynamicColor = Color3.fromHSV(hue, 0.8, 1)
 
     for _, plr in pairs(Players:GetPlayers()) do
-        if plr == player then
-            local data = espObjects[plr]
-            if data then
-                if data.highlight then data.highlight:Destroy() end
-                if data.boxLines then
-                    for _, line in pairs(data.boxLines) do
-                        line:Remove()
-                    end
-                end
-                if data.healthBar then
-                    data.healthBar:Destroy()
-                end
-                espObjects[plr] = nil
-            end
-            continue
-        end
-
+        if plr == player then continue end
         local character = plr.Character
-        if not character then
-            local data = espObjects[plr]
-            if data then
-                if data.highlight then data.highlight:Destroy() end
-                if data.boxLines then
-                    for _, line in pairs(data.boxLines) do
-                        line:Remove()
-                    end
-                end
-                if data.healthBar then
-                    data.healthBar:Destroy()
-                end
-                espObjects[plr] = nil
-            end
-            continue
-        end
-
+        if not character then continue end
         local humanoid = character:FindFirstChild("Humanoid")
-        if not humanoid or humanoid.Health <= 0 then
-            local data = espObjects[plr]
-            if data then
-                if data.highlight then data.highlight:Destroy() end
-                if data.boxLines then
-                    for _, line in pairs(data.boxLines) do
-                        line:Remove()
-                    end
-                end
-                if data.healthBar then
-                    data.healthBar:Destroy()
-                end
-                espObjects[plr] = nil
-            end
-            continue
-        end
+        if not humanoid or humanoid.Health <= 0 then continue end
 
         local rootPart = getRootPart(character)
         local head = character:FindFirstChild("Head")
-        if not rootPart or not head then
-            local data = espObjects[plr]
-            if data then
-                if data.highlight then data.highlight:Destroy() end
-                if data.boxLines then
-                    for _, line in pairs(data.boxLines) do
-                        line:Remove()
-                    end
-                end
-                if data.healthBar then
-                    data.healthBar:Destroy()
-                end
-                espObjects[plr] = nil
-            end
-            continue
-        end
+        if not rootPart or not head then continue end
 
-        local data = espObjects[plr]
-        if data and data.character ~= character then
-            if data.highlight then data.highlight:Destroy() end
-            if data.boxLines then
-                for _, line in pairs(data.boxLines) do
-                    line:Remove()
-                end
-            end
-            if data.healthBar then
-                data.healthBar:Destroy()
-            end
-            espObjects[plr] = nil
-            data = nil
-        end
+        local data = { character = character }
 
-        if not espObjects[plr] then
-            espObjects[plr] = { character = character }
-        end
-        data = espObjects[plr]
+        -- Highlight
+        local highlight = Instance.new("Highlight")
+        highlight.Adornee = character
+        highlight.FillColor = dynamicColor
+        highlight.FillTransparency = 0.4
+        highlight.OutlineColor = dynamicColor
+        highlight.OutlineTransparency = 0.2
+        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        highlight.Parent = character
+        data.highlight = highlight
 
-        -- ESP (HIGHLIGHT)
-        if espEnabled then
-            if not data.highlight then
-                local highlight = Instance.new("Highlight")
-                highlight.Adornee = character
-                highlight.FillColor = dynamicColor
-                highlight.FillTransparency = 0.4
-                highlight.OutlineColor = dynamicColor
-                highlight.OutlineTransparency = 0.2
-                highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-                highlight.Parent = character
-                data.highlight = highlight
-            else
-                data.highlight.FillColor = dynamicColor
-                data.highlight.OutlineColor = dynamicColor
-            end
-        else
-            if data.highlight then
-                data.highlight:Destroy()
-                data.highlight = nil
-            end
-        end
-
-        -- 2D BOX
+        -- 2D Box
         if boxEnabled and hasDrawing then
-            if not data.boxLines then
-                data.boxLines = {}
-                for i = 1, 4 do
-                    local line = Drawing.new("Line")
-                    line.Color = Color3.fromRGB(255, 255, 255)
-                    line.Thickness = 3
-                    line.Transparency = 0.6
-                    line.Visible = false
-                    table.insert(data.boxLines, line)
-                end
+            local lines = {}
+            for i = 1, 4 do
+                local line = Drawing.new("Line")
+                line.Color = Color3.fromRGB(255, 255, 255)
+                line.Thickness = 3
+                line.Transparency = 0.6
+                line.Visible = false
+                table.insert(lines, line)
             end
-            local headPos = head.Position
-            local rootPos = rootPart.Position
-            local height = (headPos - rootPos).Magnitude
-            local width = height * 0.8
+            data.boxLines = lines
+        end
 
-            local topPos = headPos + Vector3.new(0, 1, 0)
-            local bottomPos = rootPos - Vector3.new(0, 0.5, 0)
+        -- Health Bar
+        if healthEnabled then
+            local billboard = Instance.new("BillboardGui")
+            billboard.Size = UDim2.new(0, 80, 0, 20)
+            billboard.Adornee = head
+            billboard.StudsOffset = Vector3.new(0, 2.5, 0)
+            billboard.AlwaysOnTop = true
+            billboard.Parent = character
 
-            local topScreen, topVis = Camera:WorldToViewportPoint(topPos)
-            local bottomScreen, bottomVis = Camera:WorldToViewportPoint(bottomPos)
+            local barFrame = Instance.new("Frame")
+            barFrame.Size = UDim2.new(1, 0, 1, 0)
+            barFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+            barFrame.BackgroundTransparency = 0.3
+            barFrame.BorderSizePixel = 0
+            barFrame.Parent = billboard
 
-            if topVis and bottomVis and topScreen.Z > 0 and bottomScreen.Z > 0 then
-                local topY = topScreen.Y
-                local bottomY = bottomScreen.Y
-                local centerX = (topScreen.X + bottomScreen.X) / 2
-                local boxHeight = math.abs(topY - bottomY)
-                local boxWidth = boxHeight * 0.6
+            local fill = Instance.new("Frame")
+            fill.Size = UDim2.new(1, 0, 1, 0)
+            fill.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+            fill.BackgroundTransparency = 0
+            fill.BorderSizePixel = 0
+            fill.Parent = barFrame
 
-                local leftX = centerX - boxWidth / 2
-                local rightX = centerX + boxWidth / 2
+            local label = Instance.new("TextLabel")
+            label.Size = UDim2.new(1, 0, 1, 0)
+            label.BackgroundTransparency = 1
+            label.Text = ""
+            label.TextColor3 = Color3.fromRGB(255, 255, 255)
+            label.TextSize = 12
+            label.Font = Enum.Font.GothamBold
+            label.TextXAlignment = Enum.TextXAlignment.Center
+            label.TextYAlignment = Enum.TextYAlignment.Center
+            label.Parent = billboard
 
-                local lines = data.boxLines
-                lines[1].From = Vector2.new(leftX, topY)
-                lines[1].To = Vector2.new(rightX, topY)
-                lines[1].Visible = true
+            data.healthBar = billboard
+            data.healthFill = fill
+            data.healthLabel = label
+        end
 
-                lines[2].From = Vector2.new(leftX, bottomY)
-                lines[2].To = Vector2.new(rightX, bottomY)
-                lines[2].Visible = true
+        espObjects[plr] = data
+    end
 
-                lines[3].From = Vector2.new(leftX, topY)
-                lines[3].To = Vector2.new(leftX, bottomY)
-                lines[3].Visible = true
+    -- Обновление Health Bar (каждый кадр)
+    for plr, data in pairs(espObjects) do
+        if data.healthBar and data.humanoid then
+            local health = data.humanoid.Health
+            local maxHealth = data.humanoid.MaxHealth
+            local percent = math.clamp(health / maxHealth, 0, 1)
+            data.healthFill.Size = UDim2.new(percent, 0, 1, 0)
+            data.healthLabel.Text = math.round(health) .. "/" .. math.round(maxHealth)
+        end
+    end
 
-                lines[4].From = Vector2.new(rightX, topY)
-                lines[4].To = Vector2.new(rightX, bottomY)
-                lines[4].Visible = true
-            else
-                if data.boxLines then
+    -- Обновление 2D Box (каждый кадр)
+    for plr, data in pairs(espObjects) do
+        if data.boxLines and data.character then
+            local head = data.character:FindFirstChild("Head")
+            local rootPart = getRootPart(data.character)
+            if head and rootPart then
+                local headPos = head.Position
+                local rootPos = rootPart.Position
+                local height = (headPos - rootPos).Magnitude
+                local width = height * 0.8
+
+                local topPos = headPos + Vector3.new(0, 1, 0)
+                local bottomPos = rootPos - Vector3.new(0, 0.5, 0)
+
+                local topScreen, topVis = Camera:WorldToViewportPoint(topPos)
+                local bottomScreen, bottomVis = Camera:WorldToViewportPoint(bottomPos)
+
+                if topVis and bottomVis and topScreen.Z > 0 and bottomScreen.Z > 0 then
+                    local topY = topScreen.Y
+                    local bottomY = bottomScreen.Y
+                    local centerX = (topScreen.X + bottomScreen.X) / 2
+                    local boxHeight = math.abs(topY - bottomY)
+                    local boxWidth = boxHeight * 0.6
+
+                    local leftX = centerX - boxWidth / 2
+                    local rightX = centerX + boxWidth / 2
+
+                    local lines = data.boxLines
+                    lines[1].From = Vector2.new(leftX, topY)
+                    lines[1].To = Vector2.new(rightX, topY)
+                    lines[1].Visible = true
+
+                    lines[2].From = Vector2.new(leftX, bottomY)
+                    lines[2].To = Vector2.new(rightX, bottomY)
+                    lines[2].Visible = true
+
+                    lines[3].From = Vector2.new(leftX, topY)
+                    lines[3].To = Vector2.new(leftX, bottomY)
+                    lines[3].Visible = true
+
+                    lines[4].From = Vector2.new(rightX, topY)
+                    lines[4].To = Vector2.new(rightX, bottomY)
+                    lines[4].Visible = true
+                else
                     for _, line in pairs(data.boxLines) do
                         line.Visible = false
                     end
                 end
-            end
-        else
-            if data.boxLines then
-                for _, line in pairs(data.boxLines) do
-                    line:Remove()
-                end
-                data.boxLines = nil
-            end
-        end
-
-        -- HEALTH BAR
-        if healthEnabled then
-            if not data.healthBar then
-                local billboard = Instance.new("BillboardGui")
-                billboard.Size = UDim2.new(0, 80, 0, 20)
-                billboard.Adornee = head
-                billboard.StudsOffset = Vector3.new(0, 2.5, 0)
-                billboard.AlwaysOnTop = true
-                billboard.Parent = character
-
-                local barFrame = Instance.new("Frame")
-                barFrame.Size = UDim2.new(1, 0, 1, 0)
-                barFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-                barFrame.BackgroundTransparency = 0.3
-                barFrame.BorderSizePixel = 0
-                barFrame.Parent = billboard
-
-                local fill = Instance.new("Frame")
-                fill.Size = UDim2.new(1, 0, 1, 0)
-                fill.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-                fill.BackgroundTransparency = 0
-                fill.BorderSizePixel = 0
-                fill.Parent = barFrame
-
-                local label = Instance.new("TextLabel")
-                label.Size = UDim2.new(1, 0, 1, 0)
-                label.BackgroundTransparency = 1
-                label.Text = ""
-                label.TextColor3 = Color3.fromRGB(255, 255, 255)
-                label.TextSize = 12
-                label.Font = Enum.Font.GothamBold
-                label.TextXAlignment = Enum.TextXAlignment.Center
-                label.TextYAlignment = Enum.TextYAlignment.Center
-                label.Parent = billboard
-
-                data.healthBar = billboard
-                data.healthFill = fill
-                data.healthLabel = label
-            end
-
-            local health = humanoid.Health
-            local maxHealth = humanoid.MaxHealth
-            local percent = math.clamp(health / maxHealth, 0, 1)
-            data.healthFill.Size = UDim2.new(percent, 0, 1, 0)
-            data.healthLabel.Text = math.round(health) .. "/" .. math.round(maxHealth)
-        else
-            if data.healthBar then
-                data.healthBar:Destroy()
-                data.healthBar = nil
-                data.healthFill = nil
-                data.healthLabel = nil
             end
         end
     end
@@ -445,11 +352,10 @@ end
 
 RunService.RenderStepped:Connect(updateESP)
 
-task.spawn(function()
-    while true do
-        task.wait(1)
-        fullRefreshESP()
-    end
+Players.PlayerAdded:Connect(function(plr)
+    plr.CharacterAdded:Connect(function()
+        task.wait(0.3)
+    end)
 end)
 
 -- ============================================================
@@ -522,7 +428,6 @@ local function createCheckbox(parent, text, yPos, defaultValue, callback)
         checkbox.Text = state and "✓" or ""
         checkbox.BackgroundColor3 = state and Color3.fromRGB(0, 180, 0) or Color3.fromRGB(40, 40, 45)
         callback(state)
-        fullRefreshESP()
     end)
 
     if defaultValue then
@@ -532,19 +437,12 @@ local function createCheckbox(parent, text, yPos, defaultValue, callback)
     return checkbox
 end
 
-createCheckbox(leftHalfEsp, "ESP", 10, true, function(state)
-    espEnabled = state
-    fullRefreshESP()
-end)
-
-createCheckbox(leftHalfEsp, "2D Box", 40, false, function(state)
+createCheckbox(leftHalfEsp, "2D Box", 10, false, function(state)
     boxEnabled = state
-    fullRefreshESP()
 end)
 
-createCheckbox(leftHalfEsp, "Health Bar", 70, false, function(state)
+createCheckbox(leftHalfEsp, "Health Bar", 40, false, function(state)
     healthEnabled = state
-    fullRefreshESP()
 end)
 
 local rightHalfEsp = Instance.new("Frame")
@@ -565,7 +463,7 @@ rightLabelEsp.TextYAlignment = Enum.TextYAlignment.Center
 rightLabelEsp.Parent = rightHalfEsp
 
 -- ============================================================
---  НИЖНИЕ ВКЛАДКИ (со звуком при переключении)
+--  НИЖНИЕ ВКЛАДКИ
 -- ============================================================
 local tabsBar = Instance.new("Frame")
 tabsBar.Name = "TabsBar"
@@ -619,7 +517,6 @@ for i, name in ipairs(tabNames) do
     tabButtons[name] = btn
 
     btn.MouseButton1Click:Connect(function()
-        -- ВОСПРОИЗВОДИМ ЗВУК
         playClickSound()
 
         for pageName, page in pairs(pages) do
@@ -655,4 +552,4 @@ tabButtons["Aim"].BackgroundColor3 = Color3.fromRGB(60, 60, 70)
 tabButtons["Aim"].BackgroundTransparency = 0.1
 tabButtons["Aim"].TextColor3 = Color3.fromRGB(255, 255, 255)
 
-print("✅ Zertyx Menu (со звуком) загружен!")
+print("✅ Zertyx Menu (ESP стабильный + Health Bar) загружен!")
