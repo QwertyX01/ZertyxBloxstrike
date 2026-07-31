@@ -1,224 +1,596 @@
--- Zertyx Menu for Bloxstrike
-local player = game.Players.LocalPlayer
-local mouse = player:GetMouse()
-local uis = game:GetService("UserInputService")
+-- =====================================================
+--  Zertyx Menu (ESP + 2D Box, без Auto Aim)
+-- =====================================================
 
--- Создаём основной GUI
+local player = game:GetService("Players").LocalPlayer
 local gui = Instance.new("ScreenGui")
-gui.Name = "ZertyxMenu"
+gui.Name = "Zertyx"
 gui.ResetOnSpawn = false
-gui.Parent = player.PlayerGui
+gui.Parent = player:WaitForChild("PlayerGui")
 
--- Главное окно (640x420)
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
+local Players = game:GetService("Players")
+local SoundService = game:GetService("SoundService")
+
+-- ============================================================
+--  ЗВУК (готовый ID)
+-- ============================================================
+local clickSound = Instance.new("Sound")
+clickSound.SoundId = "rbxassetid://9120379486"
+clickSound.Volume = 0.5
+clickSound.Parent = SoundService
+
+local function playClickSound()
+    clickSound:Play()
+end
+
+-- ============================================================
+--  ОСНОВНОЕ МЕНЮ
+-- ============================================================
 local mainFrame = Instance.new("Frame")
 mainFrame.Size = UDim2.new(0, 640, 0, 420)
 mainFrame.Position = UDim2.new(0.5, -320, 0.5, -210)
-mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+mainFrame.BackgroundTransparency = 0
 mainFrame.BorderSizePixel = 0
+mainFrame.ClipsDescendants = true
+mainFrame.Active = true
+mainFrame.Draggable = true
 mainFrame.Parent = gui
 
--- Хедер (серая полоска)
+local mainCorner = Instance.new("UICorner")
+mainCorner.CornerRadius = UDim.new(0, 6)
+mainCorner.Parent = mainFrame
+
+local mainStroke = Instance.new("UIStroke")
+mainStroke.Color = Color3.fromRGB(60, 60, 60)
+mainStroke.Thickness = 1
+mainStroke.Transparency = 0.5
+mainStroke.Parent = mainFrame
+
+-- ============================================================
+--  ХЕДЕР
+-- ============================================================
 local header = Instance.new("Frame")
-header.Size = UDim2.new(1, 0, 0, 30)
-header.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+header.Name = "Header"
+header.Size = UDim2.new(1, 0, 0, 35)
+header.Position = UDim2.new(0, 0, 0, 0)
+header.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+header.BackgroundTransparency = 0
 header.BorderSizePixel = 0
 header.Parent = mainFrame
 
--- Название "Zertyx" в центре хедера
+local headerCorner = Instance.new("UICorner")
+headerCorner.CornerRadius = UDim.new(0, 6)
+headerCorner.Parent = header
+
+local headerStroke = Instance.new("UIStroke")
+headerStroke.Color = Color3.fromRGB(60, 60, 60)
+headerStroke.Thickness = 1
+headerStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+headerStroke.Parent = header
+
 local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, -30, 1, 0)
+title.Size = UDim2.new(0.5, 0, 1, 0)
+title.Position = UDim2.new(0, 10, 0, 0)
 title.BackgroundTransparency = 1
 title.Text = "Zertyx"
 title.TextColor3 = Color3.fromRGB(255, 255, 255)
-title.TextScaled = true
-title.TextXAlignment = Enum.TextXAlignment.Center
+title.TextSize = 20
+title.Font = Enum.Font.GothamMedium
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.TextYAlignment = Enum.TextYAlignment.Center
 title.Parent = header
 
--- Кнопка закрытия (крестик)
-local closeBtn = Instance.new("TextButton")
-closeBtn.Size = UDim2.new(0, 30, 1, 0)
-closeBtn.Position = UDim2.new(1, -30, 0, 0)
-closeBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-closeBtn.Text = "X"
-closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-closeBtn.TextScaled = true
-closeBtn.Parent = header
-closeBtn.MouseButton1Click:Connect(function()
-    gui:Destroy()
-end)
+-- ============================================================
+--  КОНТЕЙНЕР СТРАНИЦ
+-- ============================================================
+local contentContainer = Instance.new("Frame")
+contentContainer.Name = "ContentContainer"
+contentContainer.Size = UDim2.new(1, 0, 1, -70)
+contentContainer.Position = UDim2.new(0, 0, 0, 35)
+contentContainer.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+contentContainer.BackgroundTransparency = 0
+contentContainer.BorderSizePixel = 0
+contentContainer.ClipsDescendants = true
+contentContainer.Parent = mainFrame
 
--- Перетаскивание окна
-local dragging = false
-local dragStart, startPos
+local pages = {}
+local pageNames = {"Aim", "Esp"}
 
-header.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = true
-        dragStart = input.Position
-        startPos = mainFrame.Position
-    end
-end)
-
-header.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = false
-    end
-end)
-
-uis.InputChanged:Connect(function(input)
-    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-        local delta = input.Position - dragStart
-        mainFrame.Position = UDim2.new(
-            startPos.X.Scale, startPos.X.Offset + delta.X,
-            startPos.Y.Scale, startPos.Y.Offset + delta.Y
-        )
-    end
-end)
-
--- Панель вкладок (под хедером)
-local tabContainer = Instance.new("Frame")
-tabContainer.Size = UDim2.new(1, 0, 0, 30)
-tabContainer.Position = UDim2.new(0, 0, 0, 30)
-tabContainer.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-tabContainer.BorderSizePixel = 0
-tabContainer.Parent = mainFrame
-
--- Функция создания кнопки вкладки
-local function createTabButton(name, position)
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0, 100, 1, 0)
-    btn.Position = UDim2.new(0, position, 0, 0)
-    btn.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
-    btn.Text = name
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btn.TextScaled = true
-    btn.BorderSizePixel = 0
-    btn.Parent = tabContainer
-    return btn
+for i, name in ipairs(pageNames) do
+    local page = Instance.new("Frame")
+    page.Name = name .. "Page"
+    page.Size = UDim2.new(1, 0, 1, 0)
+    page.Position = UDim2.new(0, 0, 0, 0)
+    page.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+    page.BackgroundTransparency = 0.2
+    page.BorderSizePixel = 0
+    page.Visible = (i == 1)
+    page.Parent = contentContainer
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 6)
+    corner.Parent = page
+    pages[name] = page
 end
 
-local aimbotBtn = createTabButton("Aimbot", 5)
-local espBtn = createTabButton("ESP", 110)
+-- ============================================================
+--  ВКЛАДКА AIM (без Auto Aim, просто заглушка)
+-- ============================================================
+local aimPage = pages["Aim"]
 
--- Контейнеры для содержимого вкладок (ScrollingFrame)
-local function createContent()
-    local frame = Instance.new("ScrollingFrame")
-    frame.Size = UDim2.new(1, 0, 1, -60)
-    frame.Position = UDim2.new(0, 0, 0, 60)
-    frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    frame.BorderSizePixel = 0
-    frame.CanvasSize = UDim2.new(0, 0, 0, 0)
-    frame.ScrollBarThickness = 10
-    frame.Parent = mainFrame
-    return frame
+local dividerAim = Instance.new("Frame")
+dividerAim.Size = UDim2.new(0, 2, 1, 0)
+dividerAim.Position = UDim2.new(0.5, -1, 0, 0)
+dividerAim.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+dividerAim.BackgroundTransparency = 0.4
+dividerAim.BorderSizePixel = 0
+dividerAim.Parent = aimPage
+
+local leftHalfAim = Instance.new("Frame")
+leftHalfAim.Size = UDim2.new(0.5, -5, 1, 0)
+leftHalfAim.Position = UDim2.new(0, 5, 0, 0)
+leftHalfAim.BackgroundTransparency = 1
+leftHalfAim.Parent = aimPage
+
+local placeholderLabel = Instance.new("TextLabel")
+placeholderLabel.Size = UDim2.new(1, 0, 1, 0)
+placeholderLabel.BackgroundTransparency = 1
+placeholderLabel.Text = "Настройки Aim\n(скоро)"
+placeholderLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+placeholderLabel.TextSize = 20
+placeholderLabel.Font = Enum.Font.GothamMedium
+placeholderLabel.TextXAlignment = Enum.TextXAlignment.Center
+placeholderLabel.TextYAlignment = Enum.TextYAlignment.Center
+placeholderLabel.Parent = leftHalfAim
+
+local rightHalfAim = Instance.new("Frame")
+rightHalfAim.Size = UDim2.new(0.5, -5, 1, 0)
+rightHalfAim.Position = UDim2.new(0.5, 5, 0, 0)
+rightHalfAim.BackgroundTransparency = 1
+rightHalfAim.Parent = aimPage
+
+local rightLabelAim = Instance.new("TextLabel")
+rightLabelAim.Size = UDim2.new(1, 0, 1, 0)
+rightLabelAim.BackgroundTransparency = 1
+rightLabelAim.Text = "настройки\n(скоро)"
+rightLabelAim.TextColor3 = Color3.fromRGB(150, 150, 150)
+rightLabelAim.TextSize = 20
+rightLabelAim.Font = Enum.Font.GothamMedium
+rightLabelAim.TextXAlignment = Enum.TextXAlignment.Center
+rightLabelAim.TextYAlignment = Enum.TextYAlignment.Center
+rightLabelAim.Parent = rightHalfAim
+
+-- ============================================================
+--  ВКЛАДКА ESP (с переключателями ESP и 2D Box)
+-- ============================================================
+local espPage = pages["Esp"]
+local espEnabled = false
+local boxEnabled = false
+
+-- Хранилище объектов ESP
+local espObjects = {} -- { [player] = {highlight, boxLines} }
+
+-- Функция проверки врага
+local function isEnemy(plr)
+    if plr == player then return false end
+    if plr.Team and player.Team then
+        return plr.Team ~= player.Team
+    end
+    if plr.TeamColor and player.TeamColor then
+        return plr.TeamColor ~= player.TeamColor
+    end
+    return true
 end
 
-local contentAimbot = createContent()
-local contentESP = createContent()
-
--- UIListLayout для автоматического выравнивания элементов
-local function addLayout(parent)
-    local layout = Instance.new("UIListLayout")
-    layout.Padding = UDim.new(0, 5)
-    layout.SortOrder = Enum.SortOrder.LayoutOrder
-    layout.Parent = parent
-    return layout
+-- Функция удаления ESP для всех игроков
+local function clearESP()
+    for _, data in pairs(espObjects) do
+        if data.highlight then data.highlight:Destroy() end
+        if data.boxLines then
+            for _, line in pairs(data.boxLines) do
+                line:Remove()
+            end
+        end
+    end
+    espObjects = {}
 end
-addLayout(contentAimbot)
-addLayout(contentESP)
 
--- Вспомогательная функция: чекбокс
-local function addCheckbox(parent, text, default)
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(1, -10, 0, 30)
-    frame.BackgroundTransparency = 1
-    frame.Parent = parent
+-- Обновление ESP (вызывается при изменении состояний или в RenderStepped)
+local function updateESP()
+    -- Если обе функции выключены, очищаем всё и выходим
+    if not espEnabled and not boxEnabled then
+        clearESP()
+        return
+    end
 
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(0.8, 0, 1, 0)
-    label.BackgroundTransparency = 1
-    label.Text = text
-    label.TextColor3 = Color3.fromRGB(255, 255, 255)
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.Parent = frame
+    -- Проверяем наличие Drawing API для боксов
+    local hasDrawing = pcall(function() return Drawing end) and Drawing ~= nil
 
-    local check = Instance.new("TextButton")
-    check.Size = UDim2.new(0, 30, 0, 30)
-    check.Position = UDim2.new(1, -35, 0, 0)
-    check.BackgroundColor3 = default and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(100, 100, 100)
-    check.Text = default and "✓" or ""
-    check.TextColor3 = Color3.fromRGB(255, 255, 255)
-    check.Parent = frame
-    check.MouseButton1Click:Connect(function()
-        if check.Text == "✓" then
-            check.Text = ""
-            check.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+    for _, plr in pairs(Players:GetPlayers()) do
+        if not isEnemy(plr) then continue end
+        local character = plr.Character
+        if not character then continue end
+        local humanoid = character:FindFirstChild("Humanoid")
+        if not humanoid or humanoid.Health <= 0 then continue end
+
+        -- Инициализируем запись для игрока, если её нет
+        if not espObjects[plr] then
+            espObjects[plr] = {}
+        end
+        local data = espObjects[plr]
+
+        -- Highlight (если включён ESP)
+        if espEnabled then
+            if not data.highlight then
+                local highlight = Instance.new("Highlight")
+                highlight.Adornee = character
+                highlight.FillColor = Color3.fromRGB(255, 0, 0)
+                highlight.FillTransparency = 0.5
+                highlight.OutlineColor = Color3.fromRGB(255, 0, 0)
+                highlight.OutlineTransparency = 0.3
+                highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                highlight.Parent = character
+                data.highlight = highlight
+            end
         else
-            check.Text = "✓"
-            check.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+            if data.highlight then
+                data.highlight:Destroy()
+                data.highlight = nil
+            end
+        end
+
+        -- 2D Box (если включён и доступен Drawing)
+        if boxEnabled and hasDrawing then
+            local rootPart = character:FindFirstChild("HumanoidRootPart")
+            local head = character:FindFirstChild("Head")
+            if rootPart and head then
+                -- Если нет линий, создаём 4 линии для прямоугольника
+                if not data.boxLines then
+                    data.boxLines = {}
+                    for i = 1, 4 do
+                        local line = Drawing.new("Line")
+                        line.Color = Color3.fromRGB(255, 0, 0)
+                        line.Thickness = 2
+                        line.Transparency = 0.5
+                        line.Visible = false
+                        table.insert(data.boxLines, line)
+                    end
+                end
+                -- Обновляем позиции линий в RenderStepped (делаем отдельно)
+            else
+                -- Если частей нет, удаляем линии
+                if data.boxLines then
+                    for _, line in pairs(data.boxLines) do
+                        line:Remove()
+                    end
+                    data.boxLines = nil
+                end
+            end
+        else
+            -- Если бокс выключен, удаляем линии
+            if data.boxLines then
+                for _, line in pairs(data.boxLines) do
+                    line:Remove()
+                end
+                data.boxLines = nil
+            end
+        end
+    end
+
+    -- Удаляем записи для игроков, которые больше не существуют или не враги
+    for plr, data in pairs(espObjects) do
+        if not plr or not plr.Parent or not isEnemy(plr) or not plr.Character then
+            if data.highlight then data.highlight:Destroy() end
+            if data.boxLines then
+                for _, line in pairs(data.boxLines) do
+                    line:Remove()
+                end
+            end
+            espObjects[plr] = nil
+        end
+    end
+end
+
+-- Отдельный цикл для обновления позиций боксов (если включены)
+RunService.RenderStepped:Connect(function()
+    if not boxEnabled then return end
+    local hasDrawing = pcall(function() return Drawing end) and Drawing ~= nil
+    if not hasDrawing then return end
+
+    for plr, data in pairs(espObjects) do
+        if not data.boxLines then continue end
+        local character = plr.Character
+        if not character then continue end
+        local rootPart = character:FindFirstChild("HumanoidRootPart")
+        local head = character:FindFirstChild("Head")
+        if not rootPart or not head then
+            for _, line in pairs(data.boxLines) do
+                line.Visible = false
+            end
+            continue
+        end
+
+        -- Вычисляем экранные координаты для вершин бокса (упрощённо: берём размеры от Head до Root)
+        local headPos = head.Position
+        local rootPos = rootPart.Position
+        local vector = (headPos - rootPos)
+        local height = vector.Magnitude
+        local width = height * 0.5
+
+        -- Получаем верхнюю и нижнюю точки (приблизительно)
+        local topPos = headPos + Vector3.new(0, 0.5, 0) -- чуть выше головы
+        local bottomPos = rootPos - Vector3.new(0, 0.5, 0) -- чуть ниже ног
+
+        local topScreen, topVis = Camera:WorldToViewportPoint(topPos)
+        local bottomScreen, bottomVis = Camera:WorldToViewportPoint(bottomPos)
+
+        if not topVis or not bottomVis or topScreen.Z < 0 or bottomScreen.Z < 0 then
+            for _, line in pairs(data.boxLines) do
+                line.Visible = false
+            end
+            continue
+        end
+
+        local topY = topScreen.Y
+        local bottomY = bottomScreen.Y
+        local centerX = (topScreen.X + bottomScreen.X) / 2
+        local boxHeight = math.abs(topY - bottomY)
+        local boxWidth = boxHeight * 0.4
+
+        local leftX = centerX - boxWidth / 2
+        local rightX = centerX + boxWidth / 2
+
+        -- Обновляем линии
+        local lines = data.boxLines
+        -- Верхняя линия
+        lines[1].From = Vector2.new(leftX, topY)
+        lines[1].To = Vector2.new(rightX, topY)
+        lines[1].Visible = true
+        -- Нижняя
+        lines[2].From = Vector2.new(leftX, bottomY)
+        lines[2].To = Vector2.new(rightX, bottomY)
+        lines[2].Visible = true
+        -- Левая
+        lines[3].From = Vector2.new(leftX, topY)
+        lines[3].To = Vector2.new(leftX, bottomY)
+        lines[3].Visible = true
+        -- Правая
+        lines[4].From = Vector2.new(rightX, topY)
+        lines[4].To = Vector2.new(rightX, bottomY)
+        lines[4].Visible = true
+    end
+end)
+
+-- Создание интерфейса вкладки ESP
+local espPage = pages["Esp"] -- уже есть
+
+-- Разделитель
+local dividerEsp = Instance.new("Frame")
+dividerEsp.Size = UDim2.new(0, 2, 1, 0)
+dividerEsp.Position = UDim2.new(0.5, -1, 0, 0)
+dividerEsp.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+dividerEsp.BackgroundTransparency = 0.4
+dividerEsp.BorderSizePixel = 0
+dividerEsp.Parent = espPage
+
+-- Левая половина (настройки ESP)
+local leftHalfEsp = Instance.new("Frame")
+leftHalfEsp.Size = UDim2.new(0.5, -5, 1, 0)
+leftHalfEsp.Position = UDim2.new(0, 5, 0, 0)
+leftHalfEsp.BackgroundTransparency = 1
+leftHalfEsp.Parent = espPage
+
+-- Строка для ESP
+local rowEsp = Instance.new("Frame")
+rowEsp.Size = UDim2.new(1, 0, 0, 40)
+rowEsp.Position = UDim2.new(0, 0, 0.1, 0)
+rowEsp.BackgroundTransparency = 1
+rowEsp.Parent = leftHalfEsp
+
+local labelEsp = Instance.new("TextLabel")
+labelEsp.Size = UDim2.new(0.6, 0, 1, 0)
+labelEsp.Position = UDim2.new(0, 10, 0, 0)
+labelEsp.BackgroundTransparency = 1
+labelEsp.Text = "ESP"
+labelEsp.TextColor3 = Color3.fromRGB(255, 255, 255)
+labelEsp.TextSize = 18
+labelEsp.Font = Enum.Font.GothamBold
+labelEsp.TextXAlignment = Enum.TextXAlignment.Left
+labelEsp.TextYAlignment = Enum.TextYAlignment.Center
+labelEsp.Parent = rowEsp
+
+local toggleEsp = Instance.new("TextButton")
+toggleEsp.Size = UDim2.new(0, 80, 0, 32)
+toggleEsp.Position = UDim2.new(0.75, 0, 0.5, -16)
+toggleEsp.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+toggleEsp.BackgroundTransparency = 0.2
+toggleEsp.BorderSizePixel = 0
+toggleEsp.Text = "OFF"
+toggleEsp.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleEsp.TextSize = 16
+toggleEsp.Font = Enum.Font.SourceSansBold
+toggleEsp.Parent = rowEsp
+local btnCornerEsp = Instance.new("UICorner")
+btnCornerEsp.CornerRadius = UDim.new(0, 6)
+btnCornerEsp.Parent = toggleEsp
+
+local function updateEspState(state)
+    espEnabled = state
+    if state then
+        toggleEsp.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+        toggleEsp.Text = "ON"
+    else
+        toggleEsp.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+        toggleEsp.Text = "OFF"
+    end
+    updateESP() -- обновить видимость
+end
+
+toggleEsp.MouseButton1Click:Connect(function()
+    updateEspState(not espEnabled)
+end)
+updateEspState(false)
+
+-- Строка для 2D Box
+local rowBox = Instance.new("Frame")
+rowBox.Size = UDim2.new(1, 0, 0, 40)
+rowBox.Position = UDim2.new(0, 0, 0.25, 0)
+rowBox.BackgroundTransparency = 1
+rowBox.Parent = leftHalfEsp
+
+local labelBox = Instance.new("TextLabel")
+labelBox.Size = UDim2.new(0.6, 0, 1, 0)
+labelBox.Position = UDim2.new(0, 10, 0, 0)
+labelBox.BackgroundTransparency = 1
+labelBox.Text = "2D Box"
+labelBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+labelBox.TextSize = 18
+labelBox.Font = Enum.Font.GothamBold
+labelBox.TextXAlignment = Enum.TextXAlignment.Left
+labelBox.TextYAlignment = Enum.TextYAlignment.Center
+labelBox.Parent = rowBox
+
+local toggleBox = Instance.new("TextButton")
+toggleBox.Size = UDim2.new(0, 80, 0, 32)
+toggleBox.Position = UDim2.new(0.75, 0, 0.5, -16)
+toggleBox.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+toggleBox.BackgroundTransparency = 0.2
+toggleBox.BorderSizePixel = 0
+toggleBox.Text = "OFF"
+toggleBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleBox.TextSize = 16
+toggleBox.Font = Enum.Font.SourceSansBold
+toggleBox.Parent = rowBox
+local btnCornerBox = Instance.new("UICorner")
+btnCornerBox.CornerRadius = UDim.new(0, 6)
+btnCornerBox.Parent = toggleBox
+
+local function updateBoxState(state)
+    boxEnabled = state
+    if state then
+        toggleBox.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+        toggleBox.Text = "ON"
+    else
+        toggleBox.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+        toggleBox.Text = "OFF"
+    end
+    updateESP()
+end
+
+toggleBox.MouseButton1Click:Connect(function()
+    updateBoxState(not boxEnabled)
+end)
+updateBoxState(false)
+
+-- Правая половина (заглушка)
+local rightHalfEsp = Instance.new("Frame")
+rightHalfEsp.Size = UDim2.new(0.5, -5, 1, 0)
+rightHalfEsp.Position = UDim2.new(0.5, 5, 0, 0)
+rightHalfEsp.BackgroundTransparency = 1
+rightHalfEsp.Parent = espPage
+
+local rightLabelEsp = Instance.new("TextLabel")
+rightLabelEsp.Size = UDim2.new(1, 0, 1, 0)
+rightLabelEsp.BackgroundTransparency = 1
+rightLabelEsp.Text = "настройки\n(скоро)"
+rightLabelEsp.TextColor3 = Color3.fromRGB(150, 150, 150)
+rightLabelEsp.TextSize = 20
+rightLabelEsp.Font = Enum.Font.GothamMedium
+rightLabelEsp.TextXAlignment = Enum.TextXAlignment.Center
+rightLabelEsp.TextYAlignment = Enum.TextYAlignment.Center
+rightLabelEsp.Parent = rightHalfEsp
+
+-- ============================================================
+--  НИЖНИЕ ВКЛАДКИ (с анимацией и звуком)
+-- ============================================================
+local tabsBar = Instance.new("Frame")
+tabsBar.Name = "TabsBar"
+tabsBar.Size = UDim2.new(1, 0, 0, 35)
+tabsBar.Position = UDim2.new(0, 0, 1, -35)
+tabsBar.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+tabsBar.BackgroundTransparency = 0
+tabsBar.BorderSizePixel = 0
+tabsBar.ClipsDescendants = true
+tabsBar.Parent = mainFrame
+
+local topLine = Instance.new("Frame")
+topLine.Size = UDim2.new(1, 0, 0, 1)
+topLine.Position = UDim2.new(0, 0, 0, 0)
+topLine.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+topLine.BackgroundTransparency = 0.3
+topLine.BorderSizePixel = 0
+topLine.Parent = tabsBar
+
+local tabButtons = {}
+local tabNames = {"Aim", "Esp"}
+local tabWidth = 0.5
+
+for i, name in ipairs(tabNames) do
+    local btn = Instance.new("TextButton")
+    btn.Name = name .. "Btn"
+    btn.Size = UDim2.new(tabWidth, 0, 1, 0)
+    btn.Position = UDim2.new((i-1) * tabWidth, 0, 0, 0)
+    btn.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+    btn.BackgroundTransparency = 0.2
+    btn.BorderSizePixel = 0
+    btn.Text = name
+    btn.TextColor3 = (i == 1) and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(180, 180, 180)
+    btn.TextSize = 18
+    btn.Font = Enum.Font.SourceSansBold
+    btn.Parent = tabsBar
+
+    local btnCorner = Instance.new("UICorner")
+    btnCorner.CornerRadius = UDim.new(0, 6)
+    btnCorner.Parent = btn
+
+    btn.MouseEnter:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(45, 45, 50)}):Play()
+    end)
+    btn.MouseLeave:Connect(function()
+        if btn.BackgroundColor3 ~= Color3.fromRGB(60, 60, 70) then
+            TweenService:Create(btn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(35, 35, 40)}):Play()
+        end
+    end)
+
+    tabButtons[name] = btn
+
+    btn.MouseButton1Click:Connect(function()
+        playClickSound()
+
+        for pageName, page in pairs(pages) do
+            if pageName == name then
+                page.Visible = true
+                TweenService:Create(page, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.1}):Play()
+            else
+                TweenService:Create(page, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {BackgroundTransparency = 0.6}):Play()
+                task.wait(0.1)
+                page.Visible = false
+            end
+        end
+
+        for n, b in pairs(tabButtons) do
+            if n == name then
+                TweenService:Create(b, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                    BackgroundColor3 = Color3.fromRGB(60, 60, 70),
+                    BackgroundTransparency = 0.1,
+                    TextColor3 = Color3.fromRGB(255, 255, 255)
+                }):Play()
+            else
+                TweenService:Create(b, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                    BackgroundColor3 = Color3.fromRGB(35, 35, 40),
+                    BackgroundTransparency = 0.2,
+                    TextColor3 = Color3.fromRGB(180, 180, 180)
+                }):Play()
+            end
         end
     end)
 end
 
--- Вспомогательная функция: поле ввода (для FOV)
-local function addInput(parent, labelText, default)
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(1, -10, 0, 30)
-    frame.BackgroundTransparency = 1
-    frame.Parent = parent
+tabButtons["Aim"].BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+tabButtons["Aim"].BackgroundTransparency = 0.1
+tabButtons["Aim"].TextColor3 = Color3.fromRGB(255, 255, 255)
 
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(0.6, 0, 1, 0)
-    label.BackgroundTransparency = 1
-    label.Text = labelText
-    label.TextColor3 = Color3.fromRGB(255, 255, 255)
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.Parent = frame
-
-    local box = Instance.new("TextBox")
-    box.Size = UDim2.new(0, 60, 1, 0)
-    box.Position = UDim2.new(0.7, 0, 0, 0)
-    box.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-    box.Text = default
-    box.TextColor3 = Color3.fromRGB(255, 255, 255)
-    box.Parent = frame
-end
-
--- === Вкладка AIMBOT ===
-addCheckbox(contentAimbot, "Enable Aimbot", true)
-addCheckbox(contentAimbot, "Visible Check", false)
-addCheckbox(contentAimbot, "Silent Aim", true)
-addInput(contentAimbot, "FOV:", "90")
-addInput(contentAimbot, "Smoothness:", "5")
-
--- === Вкладка ESP ===
-addCheckbox(contentESP, "Enable ESP", true)
-addCheckbox(contentESP, "Box ESP", true)
-addCheckbox(contentESP, "Name ESP", true)
-addCheckbox(contentESP, "Health ESP", true)
-addCheckbox(contentESP, "Distance ESP", false)
-addInput(contentESP, "Max Distance:", "500")
-
--- Логика переключения вкладок
-local currentTab = "Aimbot"
-local function selectTab(tabName)
-    if currentTab == tabName then return end
-    if tabName == "Aimbot" then
-        contentAimbot.Visible = true
-        contentESP.Visible = false
-        aimbotBtn.BackgroundColor3 = Color3.fromRGB(120, 120, 120)
-        espBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
-    elseif tabName == "ESP" then
-        contentAimbot.Visible = false
-        contentESP.Visible = true
-        aimbotBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
-        espBtn.BackgroundColor3 = Color3.fromRGB(120, 120, 120)
-    end
-    currentTab = tabName
-end
-
-aimbotBtn.MouseButton1Click:Connect(function() selectTab("Aimbot") end)
-espBtn.MouseButton1Click:Connect(function() selectTab("ESP") end)
-
--- Инициализация: активна вкладка Aimbot
-selectTab("Aimbot")
+print("✅ Zertyx Menu (ESP + 2D Box) загружен!")                   
