@@ -1,5 +1,5 @@
 -- =====================================================
---  Zertyx Menu (ESP + Health Bar, обновление каждую секунду)
+--  Zertyx Menu (ESP + Health Bar, стабильное обновление)
 -- =====================================================
 
 local player = game:GetService("Players").LocalPlayer
@@ -151,7 +151,7 @@ rightLabelAim.TextYAlignment = Enum.TextYAlignment.Center
 rightLabelAim.Parent = rightHalfAim
 
 -- ============================================================
---  ВКЛАДКА ESP (ESP + Health Bar с обновлением каждую секунду)
+--  ВКЛАДКА ESP (ESP + Health Bar)
 -- ============================================================
 local espPage = pages["Esp"]
 local espEnabled = false
@@ -161,13 +161,14 @@ local healthEnabled = false
 local espObjects = {}
 local hue = 0
 local hasDrawing = pcall(function() return Drawing end) and Drawing ~= nil
+local needRefresh = false
 
 local function getRootPart(character)
     if not character then return nil end
     return character:FindFirstChild("HumanoidRootPart") or character:FindFirstChild("RootPart") or character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso")
 end
 
--- ПОЛНАЯ ПЕРЕЗАГРУЗКА ВСЕХ ОБЪЕКТОВ
+-- УДАЛЯЕМ ВСЕ ОБЪЕКТЫ И ПОМЕЧАЕМ НУЖНОСТЬ ОБНОВЛЕНИЯ
 local function fullRefreshESP()
     for plr, data in pairs(espObjects) do
         if data.highlight then data.highlight:Destroy() end
@@ -181,10 +182,18 @@ local function fullRefreshESP()
         end
     end
     espObjects = {}
+    needRefresh = true
+    print("🔄 ESP полностью обновлён")
 end
 
--- ОСНОВНОЙ ЦИКЛ ОБНОВЛЕНИЯ (каждый кадр)
+-- ОСНОВНОЙ ЦИКЛ ОБНОВЛЕНИЯ
 local function updateESP()
+    -- Если нужно полное обновление, пересоздаём всё с нуля
+    if needRefresh then
+        needRefresh = false
+        -- Уже удалили в fullRefreshESP, просто выходим
+    end
+
     hue = (hue + 0.002) % 1
     local dynamicColor = Color3.fromHSV(hue, 0.8, 1)
 
@@ -372,7 +381,7 @@ local function updateESP()
             end
         end
 
-        -- === HEALTH BAR (КРАСНЫЙ) ===
+        -- === HEALTH BAR ===
         if healthEnabled then
             if not data.healthBar then
                 local billboard = Instance.new("BillboardGui")
@@ -434,7 +443,7 @@ RunService.RenderStepped:Connect(updateESP)
 -- ПРИНУДИТЕЛЬНОЕ ПОЛНОЕ ОБНОВЛЕНИЕ КАЖДУЮ СЕКУНДУ
 task.spawn(function()
     while true do
-        task.wait(1)  -- обновление каждую секунду
+        task.wait(1)
         fullRefreshESP()
     end
 end)
@@ -521,14 +530,17 @@ end
 
 createCheckbox(leftHalfEsp, "ESP", 10, false, function(state)
     espEnabled = state
+    fullRefreshESP()
 end)
 
 createCheckbox(leftHalfEsp, "2D Box", 40, false, function(state)
     boxEnabled = state
+    fullRefreshESP()
 end)
 
 createCheckbox(leftHalfEsp, "Health Bar", 70, false, function(state)
     healthEnabled = state
+    fullRefreshESP()
 end)
 
 local rightHalfEsp = Instance.new("Frame")
@@ -636,4 +648,4 @@ tabButtons["Aim"].BackgroundColor3 = Color3.fromRGB(60, 60, 70)
 tabButtons["Aim"].BackgroundTransparency = 0.1
 tabButtons["Aim"].TextColor3 = Color3.fromRGB(255, 255, 255)
 
-print("✅ Zertyx Menu (ESP + Health Bar, обновление каждую секунду) загружен!")
+print("✅ Zertyx Menu (ESP + Health Bar) загружен!")
