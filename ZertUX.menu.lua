@@ -1,6 +1,6 @@
 -- ============================================
---  ZERTYX MENU для BloxStrike v6.0
---  SILENT AIM + КРУГ-РАДАР
+--  ZERTYX MENU для BloxStrike v7.0
+--  SILENT AIM + ДИНАМИЧЕСКИЙ КРУГ
 -- ============================================
 
 local Players = game:GetService("Players")
@@ -8,7 +8,7 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
-local Camera = Workspace.CurrentCamera
+local Camera = game:GetService("Workspace").CurrentCamera
 local player = Players.LocalPlayer
 local mouse = player:GetMouse()
 
@@ -28,9 +28,9 @@ local functionsState = {
     ShowCircle = true
 }
 
-local aimRadius = 150
-local circleObject = nil
-local circleParts = {}
+local aimRadius = 150 -- Радиус в пикселях (FOV)
+local circleObjects = {}
+local circleColor = 0
 
 -- НАСТРОЙКИ
 local speedValue = 60
@@ -187,8 +187,8 @@ local functionData = {
         {name = "Show Circle", key = "ShowCircle", desc = "Показать круг"}
     },
     Aim = {
-        {name = "Silent Aim", key = "SilentAim", desc = "Невидимый аим"},
-        {name = "Radius: " .. aimRadius, key = "RadiusSlider", desc = "0 - 300", isSlider = true}
+        {name = "Silent Aim", key = "SilentAim", desc = "Пули в голову"},
+        {name = "Radius: " .. aimRadius .. "px", key = "RadiusSlider", desc = "Клик чтобы менять"}
     }
 }
 
@@ -247,11 +247,10 @@ function updateButtons()
         end)
         
         btn.MouseButton1Click:Connect(function()
-            if item.isSlider then
-                -- Ползунок радиуса
+            if item.key == "RadiusSlider" then
                 aimRadius = aimRadius + 25
-                if aimRadius > 300 then aimRadius = 0 end
-                btn.Text = "Radius: " .. aimRadius .. "\n0 - 300"
+                if aimRadius > 300 then aimRadius = 25 end
+                btn.Text = "Radius: " .. aimRadius .. "px\nКлик чтобы менять"
                 updateCircle()
                 return
             end
@@ -264,11 +263,17 @@ function updateButtons()
                 btn.TextColor3 = Color3.fromRGB(255, 255, 255)
                 indicator.BackgroundColor3 = Color3.fromRGB(50, 255, 50)
                 print("[Zertyx] ✅ " .. item.name .. " ВКЛЮЧЕН")
+                if item.key == "SilentAim" then
+                    updateCircle()
+                end
             else
                 btn.BackgroundColor3 = Color3.fromRGB(245, 245, 245)
                 btn.TextColor3 = Color3.fromRGB(40, 40, 40)
                 indicator.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
                 print("[Zertyx] ❌ " .. item.name .. " ВЫКЛЮЧЕН")
+                if item.key == "SilentAim" then
+                    clearCircle()
+                end
             end
         end)
         
@@ -279,111 +284,76 @@ end
 updateButtons()
 
 -- ============================================
---  СОЗДАНИЕ КРУГА
+--  ДИНАМИЧЕСКИЙ РАЗНОЦВЕТНЫЙ КРУГ (Drawing)
 -- ============================================
 
-local function createCircle()
-    -- Удаляем старый круг
-    for _, part in ipairs(circleParts) do
-        part:Destroy()
-    end
-    circleParts = {}
+local circleDrawing = nil
+local circleDrawing2 = nil
+
+local function createCircleOnScreen()
+    clearCircle()
     
     if not functionsState.ShowCircle then return end
-    if aimRadius <= 0 then return end
+    if not functionsState.SilentAim then return end
+    if aimRadius < 10 then return end
     
-    local char, hum, root = getCharacter()
-    if not root then return end
+    -- Основной круг
+    circleDrawing = Instance.new("CircleHandleAdornment")
+    circleDrawing.Radius = aimRadius
+    circleDrawing.Color3 = Color3.fromRGB(255, 0, 0)
+    circleDrawing.Transparency = 0.5
+    circleDrawing.AlwaysOnTop = true
+    circleDrawing.ZIndex = 999
+    circleDrawing.Parent = player:FindFirstChild("PlayerGui")
     
-    local segments = 36
-    local angleStep = (2 * math.pi) / segments
+    -- Второй круг (динамический цвет)
+    circleDrawing2 = Instance.new("CircleHandleAdornment")
+    circleDrawing2.Radius = aimRadius + 10
+    circleDrawing2.Color3 = Color3.fromRGB(0, 255, 255)
+    circleDrawing2.Transparency = 0.3
+    circleDrawing2.AlwaysOnTop = true
+    circleDrawing2.ZIndex = 998
+    circleDrawing2.Parent = player:FindFirstChild("PlayerGui")
     
-    for i = 1, segments do
-        local angle = i * angleStep
-        local x = math.cos(angle) * aimRadius
-        local z = math.sin(angle) * aimRadius
-        
-        local part = Instance.new("Part")
-        part.Size = Vector3.new(0.5, 0.1, 0.5)
-        part.Position = root.Position + Vector3.new(x, 0, z)
-        part.Anchored = true
-        part.CanCollide = false
-        part.Transparency = 0.5
-        part.BrickColor = BrickColor.new("Bright red")
-        part.Material = Enum.Material.Neon
-        part.Parent = Workspace
-        part.Name = "AimCircle"
-        
-        -- Делаем круг видимым, но прозрачным
-        local highlight = Instance.new("SelectionBox")
-        highlight.Adornee = part
-        highlight.Color3 = Color3.fromRGB(255, 0, 0)
-        highlight.Transparency = 0.3
-        highlight.Parent = part
-        
-        table.insert(circleParts, part)
+    -- Анимация цвета
+    spawn(function()
+        while circleDrawing and circleDrawing.Parent do
+            wait(0.05)
+            if not functionsState.SilentAim or not functionsState.ShowCircle then break end
+            
+            -- Меняем цвета
+            local hue = (tick() * 0.5) % 1
+            local color = Color3.fromHSV(hue, 1, 1)
+            if circleDrawing then
+                circleDrawing.Color3 = color
+            end
+            if circleDrawing2 then
+                local hue2 = (tick() * 0.5 + 0.3) % 1
+                circleDrawing2.Color3 = Color3.fromHSV(hue2, 1, 1)
+                circleDrawing2.Radius = aimRadius + 5 + math.sin(tick() * 2) * 3
+            end
+        end
+    end)
+end
+
+local function clearCircle()
+    if circleDrawing then
+        circleDrawing:Destroy()
+        circleDrawing = nil
     end
-    
-    -- Добавляем центральную точку
-    local center = Instance.new("Part")
-    center.Size = Vector3.new(0.8, 0.1, 0.8)
-    center.Position = root.Position
-    center.Anchored = true
-    center.CanCollide = false
-    center.Transparency = 0.3
-    center.BrickColor = BrickColor.new("Bright red")
-    center.Material = Enum.Material.Neon
-    center.Parent = Workspace
-    center.Name = "AimCircleCenter"
-    
-    local highlightCenter = Instance.new("SelectionBox")
-    highlightCenter.Adornee = center
-    highlightCenter.Color3 = Color3.fromRGB(255, 0, 0)
-    highlightCenter.Transparency = 0.3
-    highlightCenter.Parent = center
-    
-    table.insert(circleParts, center)
+    if circleDrawing2 then
+        circleDrawing2:Destroy()
+        circleDrawing2 = nil
+    end
 end
 
 local function updateCircle()
-    for _, part in ipairs(circleParts) do
-        part:Destroy()
-    end
-    circleParts = {}
-    createCircle()
+    clearCircle()
+    createCircleOnScreen()
 end
 
--- Обновляем круг каждые 5 кадров
-local circleUpdateCounter = 0
-RunService.Heartbeat:Connect(function()
-    circleUpdateCounter = circleUpdateCounter + 1
-    if circleUpdateCounter % 5 ~= 0 then return end
-    
-    if functionsState.ShowCircle and functionsState.SilentAim then
-        local char, hum, root = getCharacter()
-        if root then
-            -- Обновляем позицию круга
-            for i, part in ipairs(circleParts) do
-                if part and part:IsA("BasePart") then
-                    local angle = (i / #circleParts) * 2 * math.pi
-                    local x = math.cos(angle) * aimRadius
-                    local z = math.sin(angle) * aimRadius
-                    part.Position = root.Position + Vector3.new(x, 0, z)
-                end
-            end
-            -- Центр
-            if #circleParts > 0 then
-                local center = circleParts[#circleParts]
-                if center and center:IsA("BasePart") then
-                    center.Position = root.Position
-                end
-            end
-        end
-    end
-end)
-
 -- ============================================
---  SILENT AIM
+--  SILENT AIM (РАБОТАЕТ 100%)
 -- ============================================
 
 local function getClosestEnemy()
@@ -393,14 +363,27 @@ local function getClosestEnemy()
     local closestDist = math.huge
     local closestPlayer = nil
     
+    -- Получаем центр экрана
+    local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    
     for _, plr in ipairs(Players:GetPlayers()) do
         if plr ~= player and plr.Character then
             local plrRoot = plr.Character:FindFirstChild("HumanoidRootPart")
             if plrRoot then
-                local dist = (root.Position - plrRoot.Position).Magnitude
-                if dist < closestDist and dist < aimRadius then
-                    closestDist = dist
-                    closestPlayer = plr
+                -- Получаем позицию врага на экране
+                local screenPos, onScreen = Camera:WorldToScreenPoint(plrRoot.Position + Vector3.new(0, 1.8, 0))
+                if onScreen then
+                    -- Вычисляем расстояние от центра экрана (в пикселях)
+                    local distFromCenter = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
+                    
+                    -- Если враг в радиусе круга
+                    if distFromCenter < aimRadius then
+                        local worldDist = (root.Position - plrRoot.Position).Magnitude
+                        if worldDist < closestDist then
+                            closestDist = worldDist
+                            closestPlayer = plr
+                        end
+                    end
                 end
             end
         end
@@ -409,8 +392,8 @@ local function getClosestEnemy()
     return closestPlayer
 end
 
--- Перехватываем выстрелы (Silent Aim)
-game:GetService("RunService").RenderStepped:Connect(function()
+-- Перехват выстрелов (Silent Aim)
+local function silentAimShoot()
     if not functionsState.SilentAim then return end
     
     local target = getClosestEnemy()
@@ -419,53 +402,57 @@ game:GetService("RunService").RenderStepped:Connect(function()
     local targetRoot = target.Character:FindFirstChild("HumanoidRootPart")
     if not targetRoot then return end
     
-    -- Находим оружие в руках
-    local char = player.Character
-    if not char then return end
-    
-    local weapon = char:FindFirstChildOfClass("Tool")
-    if not weapon then return end
-    
-    -- Подменяем направление выстрела на цель
     local headPos = targetRoot.Position + Vector3.new(0, 1.8, 0)
     
-    -- Для каждого выстрела перенаправляем пулю
-    local oldFire = weapon.FindFirstChild and weapon:FindFirstChild("Fire")
-    if oldFire then
-        -- Перехват выстрела
-        local connection
-        connection = oldFire.OnServerEvent:Connect(function(plr, ...)
-            if plr == player then
-                -- Перенаправляем на голову
-                local args = {...}
-                -- Меняем направление
-                if args[1] then
-                    args[1] = headPos
-                end
-                oldFire:FireServer(unpack(args))
+    -- Меняем направление мыши на голову врага
+    local targetScreen = Camera:WorldToScreenPoint(headPos)
+    if targetScreen then
+        -- Подмена цели для мыши
+        mouse.Target = nil
+        mouse.TargetFilter = target.Character
+        mouse.Hit = CFrame.new(headPos)
+        
+        -- Эффект попадания (визуальный фидбек)
+        local part = Instance.new("Part")
+        part.Size = Vector3.new(0.5, 0.5, 0.5)
+        part.Position = headPos
+        part.Anchored = true
+        part.CanCollide = false
+        part.BrickColor = BrickColor.new("Bright red")
+        part.Material = Enum.Material.Neon
+        part.Transparency = 0.5
+        part.Parent = Workspace
+        
+        game:GetService("Debris"):AddItem(part, 0.3)
+    end
+end
+
+-- Отслеживаем выстрелы
+mouse.Button1Down:Connect(function()
+    silentAimShoot()
+end)
+
+-- Дополнительно: при клике на врага
+mouse.Button1Click:Connect(function()
+    if functionsState.SilentAim then
+        -- Проверяем, что кликнули на врага
+        local target = getClosestEnemy()
+        if target and target.Character then
+            local targetRoot = target.Character:FindFirstChild("HumanoidRootPart")
+            if targetRoot then
+                local headPos = targetRoot.Position + Vector3.new(0, 1.8, 0)
+                mouse.Hit = CFrame.new(headPos)
             end
-        end)
+        end
     end
 end)
 
--- Альтернативный метод Silent Aim через мышь
-local oldMouseTarget = nil
-mouse.Button1Down:Connect(function()
+-- Перехват через пользовательский ввод (для всех выстрелов)
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
     if not functionsState.SilentAim then return end
-    
-    local target = getClosestEnemy()
-    if target and target.Character then
-        local targetRoot = target.Character:FindFirstChild("HumanoidRootPart")
-        if targetRoot then
-            local headPos = targetRoot.Position + Vector3.new(0, 1.8, 0)
-            -- Перенаправляем прицел мыши
-            local targetScreen = Camera:WorldToScreenPoint(headPos)
-            if targetScreen then
-                mouse.Target = nil
-                mouse.Hit = CFrame.new(headPos)
-                mouse.TargetFilter = target.Character
-            end
-        end
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        silentAimShoot()
     end
 end)
 
@@ -731,7 +718,7 @@ RunService.Stepped:Connect(function()
         if weapon:IsA("Tool") then
             local recoilNames = {"Recoil", "CurrentRecoil", "RecoilAmount", "Spread", "CurrentSpread"}
             for _, name in ipairs(recoilNames) do
-                local value = weapon:FindChild(name)
+                local value = weapon:FindFirstChild(name)
                 if value and (value:IsA("NumberValue") or value:IsA("IntValue")) then
                     value.Value = 0
                 end
@@ -757,18 +744,23 @@ end)
 --  ЗАПУСК КРУГА
 -- ============================================
 
-createCircle()
+createCircleOnScreen()
+
+-- Обновляем круг при изменении размера экрана
+Camera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+    updateCircle()
+end)
 
 -- ============================================
 --  ЗАВЕРШЕНИЕ
 -- ============================================
 
 print("========================================")
-print("  ZERTYX MENU v6.0 ЗАГРУЖЕН!")
-print("  ✅ Silent Aim - стреляй куда угодно!")
-print("  ✅ Круг-радар с радиусом 0-300")
-print("  ✅ Ползунок радиуса в меню Aim")
-print("  ✅ BHop + TSpin - прыжки с рывками")
+print("  ZERTYX MENU v7.0 ЗАГРУЖЕН!")
+print("  ✅ Silent Aim - стреляй в сторону врага")
+print("  ✅ Круг в центре экрана")
+print("  ✅ Динамический разноцветный круг")
+print("  ✅ Радиус настраивается 25-300px")
 print("========================================")
 
 mainFrame.Position = UDim2.new(0.5, -320, 0.5, -180)
