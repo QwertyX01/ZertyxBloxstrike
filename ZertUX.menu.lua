@@ -1,5 +1,5 @@
 -- =====================================================
---  Zertyx Menu (ESP стабильный, работает после респавна)
+--  Zertyx Menu (ESP с принудительным обновлением)
 -- =====================================================
 
 local player = game:GetService("Players").LocalPlayer
@@ -151,7 +151,7 @@ rightLabelAim.TextYAlignment = Enum.TextYAlignment.Center
 rightLabelAim.Parent = rightHalfAim
 
 -- ============================================================
---  ВКЛАДКА ESP (стабильная, работает после респавна)
+--  ВКЛАДКА ESP (принудительное обновление)
 -- ============================================================
 local espPage = pages["Esp"]
 local espEnabled = false
@@ -166,14 +166,28 @@ local function getRootPart(character)
     return character:FindFirstChild("HumanoidRootPart") or character:FindFirstChild("RootPart") or character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso")
 end
 
+-- Функция полной перезагрузки ESP
+local function fullRefreshESP()
+    -- Удаляем все объекты
+    for plr, data in pairs(espObjects) do
+        if data.highlight then data.highlight:Destroy() end
+        if data.boxLines then
+            for _, line in pairs(data.boxLines) do
+                line:Remove()
+            end
+        end
+    end
+    espObjects = {}
+    print("🔄 ESP полностью обновлён")
+end
+
+-- Основной цикл обновления (каждый кадр)
 local function updateESP()
     hue = (hue + 0.002) % 1
     local dynamicColor = Color3.fromHSV(hue, 0.8, 1)
 
-    -- Проверяем всех игроков
     for _, plr in pairs(Players:GetPlayers()) do
         if plr == player then
-            -- Удаляем объекты для себя, если они есть
             local data = espObjects[plr]
             if data then
                 if data.highlight then data.highlight:Destroy() end
@@ -189,7 +203,6 @@ local function updateESP()
 
         local character = plr.Character
         if not character then
-            -- Если персонажа нет, удаляем объекты
             local data = espObjects[plr]
             if data then
                 if data.highlight then data.highlight:Destroy() end
@@ -206,7 +219,6 @@ local function updateESP()
         local rootPart = getRootPart(character)
         local head = character:FindFirstChild("Head")
         if not rootPart or not head then
-            -- Если нет частей, удаляем объекты
             local data = espObjects[plr]
             if data then
                 if data.highlight then data.highlight:Destroy() end
@@ -220,10 +232,8 @@ local function updateESP()
             continue
         end
 
-        -- Проверяем, изменился ли персонаж
         local data = espObjects[plr]
         if data and data.character ~= character then
-            -- Персонаж изменился (респавн) – удаляем старые объекты
             if data.highlight then data.highlight:Destroy() end
             if data.boxLines then
                 for _, line in pairs(data.boxLines) do
@@ -251,7 +261,6 @@ local function updateESP()
                 highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
                 highlight.Parent = character
                 data.highlight = highlight
-                print("✅ Highlight создан для", plr.Name)
             else
                 data.highlight.FillColor = dynamicColor
                 data.highlight.OutlineColor = dynamicColor
@@ -275,7 +284,6 @@ local function updateESP()
                     line.Visible = false
                     table.insert(data.boxLines, line)
                 end
-                print("✅ 2D Box создан для", plr.Name)
             end
             local headPos = head.Position
             local rootPos = rootPart.Position
@@ -332,7 +340,16 @@ local function updateESP()
     end
 end
 
+-- Запускаем обновление каждый кадр
 RunService.RenderStepped:Connect(updateESP)
+
+-- Принудительное полное обновление каждые 1.5 секунды
+task.spawn(function()
+    while true do
+        task.wait(1.5)
+        fullRefreshESP()
+    end
+end)
 
 -- ============================================================
 --  ИНТЕРФЕЙС ВКЛАДКИ ESP
@@ -404,7 +421,7 @@ local function createCheckbox(parent, text, yPos, defaultValue, callback)
         checkbox.Text = state and "✓" or ""
         checkbox.BackgroundColor3 = state and Color3.fromRGB(0, 180, 0) or Color3.fromRGB(40, 40, 45)
         callback(state)
-        print("🔘 Чекбокс '" .. text .. "' изменён:", state)
+        fullRefreshESP() -- Принудительное обновление при клике
     end)
 
     if defaultValue then
@@ -416,12 +433,10 @@ end
 
 createCheckbox(leftHalfEsp, "ESP", 10, false, function(state)
     espEnabled = state
-    print("📌 espEnabled =", espEnabled)
 end)
 
 createCheckbox(leftHalfEsp, "2D Box", 40, false, function(state)
     boxEnabled = state
-    print("📌 boxEnabled =", boxEnabled)
 end)
 
 local rightHalfEsp = Instance.new("Frame")
@@ -529,4 +544,4 @@ tabButtons["Aim"].BackgroundColor3 = Color3.fromRGB(60, 60, 70)
 tabButtons["Aim"].BackgroundTransparency = 0.1
 tabButtons["Aim"].TextColor3 = Color3.fromRGB(255, 255, 255)
 
-print("✅ Zertyx Menu (ESP стабильный, работает после респавна) загружен!")
+print("✅ Zertyx Menu (ESP с принудительным обновлением) загружен!")
