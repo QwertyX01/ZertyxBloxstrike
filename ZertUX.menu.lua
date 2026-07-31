@@ -155,8 +155,8 @@ rightLabelAim.Parent = rightHalfAim
 -- ============================================================
 local espPage = pages["Esp"]
 local espEnabled = true
-local boxEnabled = true
-local healthEnabled = true
+local boxEnabled = false
+local healthEnabled = false
 
 local espObjects = {}
 local hue = 0
