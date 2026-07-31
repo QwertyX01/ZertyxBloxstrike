@@ -1,5 +1,5 @@
 -- =====================================================
---  Zertyx Menu (ESP + Health Bar, обновление каждую секунду)
+--  Zertyx Menu (ESP + Health Bar — ФИКС)
 -- =====================================================
 
 local player = game:GetService("Players").LocalPlayer
@@ -14,7 +14,7 @@ local Camera = workspace.CurrentCamera
 local Players = game:GetService("Players")
 
 -- ============================================================
---  ОСНОВНОЕ МЕНЮ
+--  ОСНОВНОЕ МЕНЮ (без изменений)
 -- ============================================================
 local mainFrame = Instance.new("Frame")
 mainFrame.Size = UDim2.new(0, 640, 0, 420)
@@ -38,7 +38,7 @@ mainStroke.Transparency = 0.5
 mainStroke.Parent = mainFrame
 
 -- ============================================================
---  ХЕДЕР
+--  ХЕДЕР (без изменений)
 -- ============================================================
 local header = Instance.new("Frame")
 header.Name = "Header"
@@ -72,7 +72,7 @@ title.TextYAlignment = Enum.TextYAlignment.Center
 title.Parent = header
 
 -- ============================================================
---  КОНТЕЙНЕР СТРАНИЦ
+--  КОНТЕЙНЕР СТРАНИЦ (без изменений)
 -- ============================================================
 local contentContainer = Instance.new("Frame")
 contentContainer.Name = "ContentContainer"
@@ -151,12 +151,12 @@ rightLabelAim.TextYAlignment = Enum.TextYAlignment.Center
 rightLabelAim.Parent = rightHalfAim
 
 -- ============================================================
---  ВКЛАДКА ESP (ESP + Health Bar с обновлением каждую секунду)
+--  ВКЛАДКА ESP (ФИКС)
 -- ============================================================
 local espPage = pages["Esp"]
-local espEnabled = false
+local espEnabled = true   -- ВКЛЮЧЕН ПО УМОЛЧАНИЮ
 local boxEnabled = false
-local healthEnabled = false
+local healthEnabled = true   -- ВКЛЮЧЕН ПО УМОЛЧАНИЮ
 
 local espObjects = {}
 local hue = 0
@@ -167,8 +167,9 @@ local function getRootPart(character)
     return character:FindFirstChild("HumanoidRootPart") or character:FindFirstChild("RootPart") or character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso")
 end
 
--- ПОЛНАЯ ПЕРЕЗАГРУЗКА ВСЕХ ОБЪЕКТОВ
-local function fullRefreshESP()
+-- ПОЛНАЯ ПЕРЕЗАГРУЗКА (НО НЕ УДАЛЯЕМ ОБЪЕКТЫ, А ПЕРЕСОЗДАЁМ)
+local function refreshESP()
+    -- Удаляем все старые объекты
     for plr, data in pairs(espObjects) do
         if data.highlight then data.highlight:Destroy() end
         if data.boxLines then
@@ -181,261 +182,205 @@ local function fullRefreshESP()
         end
     end
     espObjects = {}
+
+    -- Создаём заново для всех игроков
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr == player then continue end
+        local char = plr.Character
+        if not char then continue end
+        local humanoid = char:FindFirstChild("Humanoid")
+        if not humanoid or humanoid.Health <= 0 then continue end
+
+        local head = char:FindFirstChild("Head")
+        local rootPart = getRootPart(char)
+        if not head or not rootPart then continue end
+
+        hue = (hue + 0.1) % 1
+        local color = Color3.fromHSV(hue, 0.8, 1)
+
+        local data = {
+            character = char,
+            humanoid = humanoid,
+            head = head,
+            rootPart = rootPart
+        }
+
+        -- ESP
+        if espEnabled then
+            local highlight = Instance.new("Highlight")
+            highlight.Adornee = char
+            highlight.FillColor = color
+            highlight.FillTransparency = 0.4
+            highlight.OutlineColor = color
+            highlight.OutlineTransparency = 0.2
+            highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            highlight.Parent = char
+            data.highlight = highlight
+        end
+
+        -- 2D Box
+        if boxEnabled and hasDrawing then
+            local lines = {}
+            for i = 1, 4 do
+                local line = Drawing.new("Line")
+                line.Color = Color3.fromRGB(255, 255, 255)
+                line.Thickness = 3
+                line.Transparency = 0.6
+                line.Visible = false
+                table.insert(lines, line)
+            end
+            data.boxLines = lines
+        end
+
+        -- Health Bar
+        if healthEnabled then
+            local billboard = Instance.new("BillboardGui")
+            billboard.Size = UDim2.new(0, 80, 0, 20)
+            billboard.Adornee = head
+            billboard.StudsOffset = Vector3.new(0, 2.5, 0)
+            billboard.AlwaysOnTop = true
+            billboard.Parent = char
+
+            local barFrame = Instance.new("Frame")
+            barFrame.Size = UDim2.new(1, 0, 1, 0)
+            barFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+            barFrame.BackgroundTransparency = 0.3
+            barFrame.BorderSizePixel = 0
+            barFrame.Parent = billboard
+
+            local fill = Instance.new("Frame")
+            fill.Size = UDim2.new(1, 0, 1, 0)
+            fill.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+            fill.BackgroundTransparency = 0
+            fill.BorderSizePixel = 0
+            fill.Parent = barFrame
+
+            local label = Instance.new("TextLabel")
+            label.Size = UDim2.new(1, 0, 1, 0)
+            label.BackgroundTransparency = 1
+            label.Text = ""
+            label.TextColor3 = Color3.fromRGB(255, 255, 255)
+            label.TextSize = 12
+            label.Font = Enum.Font.GothamBold
+            label.TextXAlignment = Enum.TextXAlignment.Center
+            label.TextYAlignment = Enum.TextYAlignment.Center
+            label.Parent = billboard
+
+            data.healthBar = billboard
+            data.healthFill = fill
+            data.healthLabel = label
+        end
+
+        espObjects[plr] = data
+    end
+
+    -- Обновляем Health Bar (числа)
+    for plr, data in pairs(espObjects) do
+        if data.healthFill and data.humanoid then
+            local health = data.humanoid.Health
+            local maxHealth = data.humanoid.MaxHealth
+            local percent = math.clamp(health / maxHealth, 0, 1)
+            data.healthFill.Size = UDim2.new(percent, 0, 1, 0)
+            data.healthLabel.Text = math.round(health) .. "/" .. math.round(maxHealth)
+        end
+    end
 end
 
--- ОСНОВНОЙ ЦИКЛ ОБНОВЛЕНИЯ (каждый кадр)
-local function updateESP()
-    hue = (hue + 0.002) % 1
-    local dynamicColor = Color3.fromHSV(hue, 0.8, 1)
+-- Запускаем refreshESP каждые 0.5 секунды
+task.spawn(function()
+    while true do
+        task.wait(0.5)
+        refreshESP()
+    end
+end)
 
-    -- Проверяем всех игроков
-    for _, plr in pairs(Players:GetPlayers()) do
-        if plr == player then
-            local data = espObjects[plr]
-            if data then
-                if data.highlight then data.highlight:Destroy() end
-                if data.boxLines then
-                    for _, line in pairs(data.boxLines) do
-                        line:Remove()
-                    end
-                end
-                if data.healthBar then
-                    data.healthBar:Destroy()
-                end
-                espObjects[plr] = nil
-            end
-            continue
+-- Обновляем Health Bar каждый кадр (чтобы числа обновлялись плавно)
+RunService.RenderStepped:Connect(function()
+    for plr, data in pairs(espObjects) do
+        if data.healthFill and data.humanoid then
+            local health = data.humanoid.Health
+            local maxHealth = data.humanoid.MaxHealth
+            local percent = math.clamp(health / maxHealth, 0, 1)
+            data.healthFill.Size = UDim2.new(percent, 0, 1, 0)
+            data.healthLabel.Text = math.round(health) .. "/" .. math.round(maxHealth)
         end
+    end
 
-        local character = plr.Character
-        if not character then
-            local data = espObjects[plr]
-            if data then
-                if data.highlight then data.highlight:Destroy() end
-                if data.boxLines then
-                    for _, line in pairs(data.boxLines) do
-                        line:Remove()
-                    end
-                end
-                if data.healthBar then
-                    data.healthBar:Destroy()
-                end
-                espObjects[plr] = nil
-            end
-            continue
-        end
+    -- Обновляем 2D Box (каждый кадр)
+    for plr, data in pairs(espObjects) do
+        if data.boxLines and data.character then
+            local head = data.character:FindFirstChild("Head")
+            local rootPart = getRootPart(data.character)
+            if head and rootPart then
+                local headPos = head.Position
+                local rootPos = rootPart.Position
+                local height = (headPos - rootPos).Magnitude
+                local width = height * 0.8
 
-        local humanoid = character:FindFirstChild("Humanoid")
-        if not humanoid or humanoid.Health <= 0 then
-            local data = espObjects[plr]
-            if data then
-                if data.highlight then data.highlight:Destroy() end
-                if data.boxLines then
-                    for _, line in pairs(data.boxLines) do
-                        line:Remove()
-                    end
-                end
-                if data.healthBar then
-                    data.healthBar:Destroy()
-                end
-                espObjects[plr] = nil
-            end
-            continue
-        end
+                local topPos = headPos + Vector3.new(0, 1, 0)
+                local bottomPos = rootPos - Vector3.new(0, 0.5, 0)
 
-        local rootPart = getRootPart(character)
-        local head = character:FindFirstChild("Head")
-        if not rootPart or not head then
-            local data = espObjects[plr]
-            if data then
-                if data.highlight then data.highlight:Destroy() end
-                if data.boxLines then
-                    for _, line in pairs(data.boxLines) do
-                        line:Remove()
-                    end
-                end
-                if data.healthBar then
-                    data.healthBar:Destroy()
-                end
-                espObjects[plr] = nil
-            end
-            continue
-        end
+                local topScreen, topVis = Camera:WorldToViewportPoint(topPos)
+                local bottomScreen, bottomVis = Camera:WorldToViewportPoint(bottomPos)
 
-        -- Проверяем, изменился ли персонаж
-        local data = espObjects[plr]
-        if data and data.character ~= character then
-            if data.highlight then data.highlight:Destroy() end
-            if data.boxLines then
-                for _, line in pairs(data.boxLines) do
-                    line:Remove()
-                end
-            end
-            if data.healthBar then
-                data.healthBar:Destroy()
-            end
-            espObjects[plr] = nil
-            data = nil
-        end
+                if topVis and bottomVis and topScreen.Z > 0 and bottomScreen.Z > 0 then
+                    local topY = topScreen.Y
+                    local bottomY = bottomScreen.Y
+                    local centerX = (topScreen.X + bottomScreen.X) / 2
+                    local boxHeight = math.abs(topY - bottomY)
+                    local boxWidth = boxHeight * 0.6
 
-        if not espObjects[plr] then
-            espObjects[plr] = { character = character }
-        end
-        data = espObjects[plr]
+                    local leftX = centerX - boxWidth / 2
+                    local rightX = centerX + boxWidth / 2
 
-        -- === ESP (HIGHLIGHT) ===
-        if espEnabled then
-            if not data.highlight then
-                local highlight = Instance.new("Highlight")
-                highlight.Adornee = character
-                highlight.FillColor = dynamicColor
-                highlight.FillTransparency = 0.4
-                highlight.OutlineColor = dynamicColor
-                highlight.OutlineTransparency = 0.2
-                highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-                highlight.Parent = character
-                data.highlight = highlight
-            else
-                data.highlight.FillColor = dynamicColor
-                data.highlight.OutlineColor = dynamicColor
-            end
-        else
-            if data.highlight then
-                data.highlight:Destroy()
-                data.highlight = nil
-            end
-        end
+                    local lines = data.boxLines
+                    lines[1].From = Vector2.new(leftX, topY)
+                    lines[1].To = Vector2.new(rightX, topY)
+                    lines[1].Visible = true
 
-        -- === 2D BOX ===
-        if boxEnabled and hasDrawing then
-            if not data.boxLines then
-                data.boxLines = {}
-                for i = 1, 4 do
-                    local line = Drawing.new("Line")
-                    line.Color = Color3.fromRGB(255, 255, 255)
-                    line.Thickness = 3
-                    line.Transparency = 0.6
-                    line.Visible = false
-                    table.insert(data.boxLines, line)
-                end
-            end
-            local headPos = head.Position
-            local rootPos = rootPart.Position
-            local height = (headPos - rootPos).Magnitude
-            local width = height * 0.8
+                    lines[2].From = Vector2.new(leftX, bottomY)
+                    lines[2].To = Vector2.new(rightX, bottomY)
+                    lines[2].Visible = true
 
-            local topPos = headPos + Vector3.new(0, 1, 0)
-            local bottomPos = rootPos - Vector3.new(0, 0.5, 0)
+                    lines[3].From = Vector2.new(leftX, topY)
+                    lines[3].To = Vector2.new(leftX, bottomY)
+                    lines[3].Visible = true
 
-            local topScreen, topVis = Camera:WorldToViewportPoint(topPos)
-            local bottomScreen, bottomVis = Camera:WorldToViewportPoint(bottomPos)
-
-            if topVis and bottomVis and topScreen.Z > 0 and bottomScreen.Z > 0 then
-                local topY = topScreen.Y
-                local bottomY = bottomScreen.Y
-                local centerX = (topScreen.X + bottomScreen.X) / 2
-                local boxHeight = math.abs(topY - bottomY)
-                local boxWidth = boxHeight * 0.6
-
-                local leftX = centerX - boxWidth / 2
-                local rightX = centerX + boxWidth / 2
-
-                local lines = data.boxLines
-                lines[1].From = Vector2.new(leftX, topY)
-                lines[1].To = Vector2.new(rightX, topY)
-                lines[1].Visible = true
-
-                lines[2].From = Vector2.new(leftX, bottomY)
-                lines[2].To = Vector2.new(rightX, bottomY)
-                lines[2].Visible = true
-
-                lines[3].From = Vector2.new(leftX, topY)
-                lines[3].To = Vector2.new(leftX, bottomY)
-                lines[3].Visible = true
-
-                lines[4].From = Vector2.new(rightX, topY)
-                lines[4].To = Vector2.new(rightX, bottomY)
-                lines[4].Visible = true
-            else
-                if data.boxLines then
+                    lines[4].From = Vector2.new(rightX, topY)
+                    lines[4].To = Vector2.new(rightX, bottomY)
+                    lines[4].Visible = true
+                else
                     for _, line in pairs(data.boxLines) do
                         line.Visible = false
                     end
                 end
             end
-        else
-            if data.boxLines then
-                for _, line in pairs(data.boxLines) do
-                    line:Remove()
-                end
-                data.boxLines = nil
-            end
-        end
-
-        -- === HEALTH BAR (КРАСНЫЙ) ===
-        if healthEnabled then
-            if not data.healthBar then
-                local billboard = Instance.new("BillboardGui")
-                billboard.Size = UDim2.new(0, 80, 0, 20)
-                billboard.Adornee = head
-                billboard.StudsOffset = Vector3.new(0, 2.5, 0)
-                billboard.AlwaysOnTop = true
-                billboard.Parent = character
-
-                local barFrame = Instance.new("Frame")
-                barFrame.Size = UDim2.new(1, 0, 1, 0)
-                barFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-                barFrame.BackgroundTransparency = 0.3
-                barFrame.BorderSizePixel = 0
-                barFrame.Parent = billboard
-
-                local fill = Instance.new("Frame")
-                fill.Size = UDim2.new(1, 0, 1, 0)
-                fill.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-                fill.BackgroundTransparency = 0
-                fill.BorderSizePixel = 0
-                fill.Parent = barFrame
-
-                local label = Instance.new("TextLabel")
-                label.Size = UDim2.new(1, 0, 1, 0)
-                label.BackgroundTransparency = 1
-                label.Text = ""
-                label.TextColor3 = Color3.fromRGB(255, 255, 255)
-                label.TextSize = 12
-                label.Font = Enum.Font.GothamBold
-                label.TextXAlignment = Enum.TextXAlignment.Center
-                label.TextYAlignment = Enum.TextYAlignment.Center
-                label.Parent = billboard
-
-                data.healthBar = billboard
-                data.healthFill = fill
-                data.healthLabel = label
-            end
-
-            local health = humanoid.Health
-            local maxHealth = humanoid.MaxHealth
-            local percent = math.clamp(health / maxHealth, 0, 1)
-            data.healthFill.Size = UDim2.new(percent, 0, 1, 0)
-            data.healthLabel.Text = math.round(health) .. "/" .. math.round(maxHealth)
-        else
-            if data.healthBar then
-                data.healthBar:Destroy()
-                data.healthBar = nil
-                data.healthFill = nil
-                data.healthLabel = nil
-            end
         end
     end
-end
+end)
 
--- ЗАПУСКАЕМ ОБНОВЛЕНИЕ КАЖДЫЙ КАДР
-RunService.RenderStepped:Connect(updateESP)
+-- При появлении новых игроков
+Players.PlayerAdded:Connect(function(plr)
+    plr.CharacterAdded:Connect(function()
+        task.wait(0.3)
+        refreshESP()
+    end)
+end)
 
--- ПРИНУДИТЕЛЬНОЕ ПОЛНОЕ ОБНОВЛЕНИЕ КАЖДУЮ СЕКУНДУ
-task.spawn(function()
-    while true do
-        task.wait(1)  -- обновление каждую секунду
-        fullRefreshESP()
+-- При удалении игроков
+Players.PlayerRemoving:Connect(function(plr)
+    local data = espObjects[plr]
+    if data then
+        if data.highlight then data.highlight:Destroy() end
+        if data.boxLines then
+            for _, line in pairs(data.boxLines) do
+                line:Remove()
+            end
+        end
+        if data.healthBar then
+            data.healthBar:Destroy()
+        end
+        espObjects[plr] = nil
     end
 end)
 
@@ -509,7 +454,7 @@ local function createCheckbox(parent, text, yPos, defaultValue, callback)
         checkbox.Text = state and "✓" or ""
         checkbox.BackgroundColor3 = state and Color3.fromRGB(0, 180, 0) or Color3.fromRGB(40, 40, 45)
         callback(state)
-        fullRefreshESP()
+        refreshESP()
     end)
 
     if defaultValue then
@@ -519,16 +464,19 @@ local function createCheckbox(parent, text, yPos, defaultValue, callback)
     return checkbox
 end
 
-createCheckbox(leftHalfEsp, "ESP", 10, false, function(state)
+createCheckbox(leftHalfEsp, "ESP", 10, true, function(state)
     espEnabled = state
+    refreshESP()
 end)
 
 createCheckbox(leftHalfEsp, "2D Box", 40, false, function(state)
     boxEnabled = state
+    refreshESP()
 end)
 
-createCheckbox(leftHalfEsp, "Health Bar", 70, false, function(state)
+createCheckbox(leftHalfEsp, "Health Bar", 70, true, function(state)
     healthEnabled = state
+    refreshESP()
 end)
 
 local rightHalfEsp = Instance.new("Frame")
@@ -636,4 +584,4 @@ tabButtons["Aim"].BackgroundColor3 = Color3.fromRGB(60, 60, 70)
 tabButtons["Aim"].BackgroundTransparency = 0.1
 tabButtons["Aim"].TextColor3 = Color3.fromRGB(255, 255, 255)
 
-print("✅ Zertyx Menu (ESP + Health Bar, обновление каждую секунду) загружен!")
+print("✅ Zertyx Menu (ESP + Health Bar — ФИКС) загружен!")
