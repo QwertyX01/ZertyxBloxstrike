@@ -1,5 +1,5 @@
 -- =====================================================
---  Zertyx Menu (ESP: динамичный RGB + 2D Box)
+--  Zertyx Menu (ESP + 2D Box) – РАБОЧАЯ ВЕРСИЯ
 -- =====================================================
 
 local player = game:GetService("Players").LocalPlayer
@@ -12,19 +12,6 @@ local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local Camera = workspace.CurrentCamera
 local Players = game:GetService("Players")
-local SoundService = game:GetService("SoundService")
-
--- ============================================================
---  ЗВУК
--- ============================================================
-local clickSound = Instance.new("Sound")
-clickSound.SoundId = "rbxassetid://9120379486"
-clickSound.Volume = 0.5
-clickSound.Parent = SoundService
-
-local function playClickSound()
-    clickSound:Play()
-end
 
 -- ============================================================
 --  ОСНОВНОЕ МЕНЮ
@@ -164,46 +151,28 @@ rightLabelAim.TextYAlignment = Enum.TextYAlignment.Center
 rightLabelAim.Parent = rightHalfAim
 
 -- ============================================================
---  ВКЛАДКА ESP (только ESP и 2D Box)
+--  ВКЛАДКА ESP (ТОЛЬКО ESP + 2D BOX)
 -- ============================================================
 local espPage = pages["Esp"]
 local espEnabled = false
 local boxEnabled = false
 
--- Хранилище объектов
 local espObjects = {}
 local hue = 0
 local hasDrawing = pcall(function() return Drawing end) and Drawing ~= nil
 
--- ============================================================
---  ЛОГИКА ESP
--- ============================================================
+-- Упрощённая проверка врага (игнорируем команды, чтобы точно работало)
 local function isEnemy(plr)
     if plr == player then return false end
     if not plr.Character then return false end
     local humanoid = plr.Character:FindFirstChild("Humanoid")
     if not humanoid or humanoid.Health <= 0 then return false end
-    -- Проверка команд (если есть)
-    if player.Team and plr.Team and player.Team == plr.Team then return false end
-    if player.TeamColor and plr.TeamColor and player.TeamColor == plr.TeamColor then return false end
-    return true
+    return true  -- все остальные считаются врагами
 end
 
 local function getRootPart(character)
     if not character then return nil end
     return character:FindFirstChild("HumanoidRootPart") or character:FindFirstChild("RootPart") or character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso")
-end
-
-local function clearESP()
-    for _, data in pairs(espObjects) do
-        if data.highlight then data.highlight:Destroy() end
-        if data.boxLines then
-            for _, line in pairs(data.boxLines) do
-                line:Remove()
-            end
-        end
-    end
-    espObjects = {}
 end
 
 local function updateESP()
@@ -330,7 +299,6 @@ local function updateESP()
     end
 end
 
--- Запускаем обновление в RenderStepped
 RunService.RenderStepped:Connect(updateESP)
 
 -- ============================================================
@@ -352,7 +320,6 @@ leftHalfEsp.Position = UDim2.new(0, 5, 0, 0)
 leftHalfEsp.BackgroundTransparency = 1
 leftHalfEsp.Parent = espPage
 
--- Функция создания чекбокса
 local function createCheckbox(parent, text, yPos, defaultValue, callback)
     local row = Instance.new("Frame")
     row.Size = UDim2.new(1, 0, 0, 26)
@@ -404,8 +371,6 @@ local function createCheckbox(parent, text, yPos, defaultValue, callback)
         checkbox.Text = state and "✓" or ""
         checkbox.BackgroundColor3 = state and Color3.fromRGB(0, 180, 0) or Color3.fromRGB(40, 40, 45)
         callback(state)
-        playClickSound()
-        updateESP()
     end)
 
     if defaultValue then
@@ -415,7 +380,6 @@ local function createCheckbox(parent, text, yPos, defaultValue, callback)
     return checkbox
 end
 
--- Чекбоксы
 createCheckbox(leftHalfEsp, "ESP", 10, false, function(state)
     espEnabled = state
 end)
@@ -424,7 +388,7 @@ createCheckbox(leftHalfEsp, "2D Box", 40, false, function(state)
     boxEnabled = state
 end)
 
--- Правая половина (заглушка)
+-- Правая половина
 local rightHalfEsp = Instance.new("Frame")
 rightHalfEsp.Size = UDim2.new(0.5, -5, 1, 0)
 rightHalfEsp.Position = UDim2.new(0.5, 5, 0, 0)
@@ -443,7 +407,7 @@ rightLabelEsp.TextYAlignment = Enum.TextYAlignment.Center
 rightLabelEsp.Parent = rightHalfEsp
 
 -- ============================================================
---  НИЖНИЕ ВКЛАДКИ (с анимацией и звуком)
+--  НИЖНИЕ ВКЛАДКИ
 -- ============================================================
 local tabsBar = Instance.new("Frame")
 tabsBar.Name = "TabsBar"
@@ -497,8 +461,6 @@ for i, name in ipairs(tabNames) do
     tabButtons[name] = btn
 
     btn.MouseButton1Click:Connect(function()
-        playClickSound()
-
         for pageName, page in pairs(pages) do
             if pageName == name then
                 page.Visible = true
@@ -532,4 +494,4 @@ tabButtons["Aim"].BackgroundColor3 = Color3.fromRGB(60, 60, 70)
 tabButtons["Aim"].BackgroundTransparency = 0.1
 tabButtons["Aim"].TextColor3 = Color3.fromRGB(255, 255, 255)
 
-print("✅ Zertyx Menu (ESP + 2D Box) загружен!")
+print("✅ Zertyx Menu (рабочая версия) загружен!")
