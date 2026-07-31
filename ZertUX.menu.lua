@@ -1,5 +1,5 @@
 -- =====================================================
---  Zertyx Menu (ESP + 2D Box, без Auto Aim)
+--  Zertyx Menu (ESP + 2D Box, полная переработка)
 -- =====================================================
 
 local player = game:GetService("Players").LocalPlayer
@@ -15,7 +15,7 @@ local Players = game:GetService("Players")
 local SoundService = game:GetService("SoundService")
 
 -- ============================================================
---  ЗВУК (готовый ID)
+--  ЗВУК
 -- ============================================================
 local clickSound = Instance.new("Sound")
 clickSound.SoundId = "rbxassetid://9120379486"
@@ -117,7 +117,7 @@ for i, name in ipairs(pageNames) do
 end
 
 -- ============================================================
---  ВКЛАДКА AIM (без Auto Aim, просто заглушка)
+--  ВКЛАДКА AIM (пустая)
 -- ============================================================
 local aimPage = pages["Aim"]
 
@@ -164,7 +164,7 @@ rightLabelAim.TextYAlignment = Enum.TextYAlignment.Center
 rightLabelAim.Parent = rightHalfAim
 
 -- ============================================================
---  ВКЛАДКА ESP (с переключателями ESP и 2D Box)
+--  ВКЛАДКА ESP (с переключателями)
 -- ============================================================
 local espPage = pages["Esp"]
 local espEnabled = false
@@ -173,19 +173,25 @@ local boxEnabled = false
 -- Хранилище объектов ESP
 local espObjects = {} -- { [player] = {highlight, boxLines} }
 
--- Функция проверки врага
+-- Проверка врага (надёжная)
 local function isEnemy(plr)
     if plr == player then return false end
-    if plr.Team and player.Team then
-        return plr.Team ~= player.Team
+    if not plr.Character then return false end
+    local humanoid = plr.Character:FindFirstChild("Humanoid")
+    if not humanoid or humanoid.Health <= 0 then return false end
+
+    -- Проверка команд
+    if player.Team and plr.Team then
+        return player.Team ~= plr.Team
     end
-    if plr.TeamColor and player.TeamColor then
-        return plr.TeamColor ~= player.TeamColor
+    if player.TeamColor and plr.TeamColor then
+        return player.TeamColor ~= plr.TeamColor
     end
+    -- Если команды нет, считаем всех других врагами
     return true
 end
 
--- Функция удаления ESP для всех игроков
+-- Очистка ESP
 local function clearESP()
     for _, data in pairs(espObjects) do
         if data.highlight then data.highlight:Destroy() end
@@ -198,17 +204,25 @@ local function clearESP()
     espObjects = {}
 end
 
--- Обновление ESP (вызывается при изменении состояний или в RenderStepped)
-local function updateESP()
-    -- Если обе функции выключены, очищаем всё и выходим
-    if not espEnabled and not boxEnabled then
-        clearESP()
-        return
+-- Проверка Drawing API
+local hasDrawing = pcall(function() return Drawing end) and Drawing ~= nil
+
+-- Основной цикл обновления ESP (вызывается каждый кадр)
+RunService.RenderStepped:Connect(function()
+    -- Удаляем объекты для мёртвых или не-врагов
+    for plr, data in pairs(espObjects) do
+        if not plr or not plr.Parent or not isEnemy(plr) or not plr.Character then
+            if data.highlight then data.highlight:Destroy() end
+            if data.boxLines then
+                for _, line in pairs(data.boxLines) do
+                    line:Remove()
+                end
+            end
+            espObjects[plr] = nil
+        end
     end
 
-    -- Проверяем наличие Drawing API для боксов
-    local hasDrawing = pcall(function() return Drawing end) and Drawing ~= nil
-
+    -- Обходим всех игроков
     for _, plr in pairs(Players:GetPlayers()) do
         if not isEnemy(plr) then continue end
         local character = plr.Character
@@ -216,7 +230,7 @@ local function updateESP()
         local humanoid = character:FindFirstChild("Humanoid")
         if not humanoid or humanoid.Health <= 0 then continue end
 
-        -- Инициализируем запись для игрока, если её нет
+        -- Инициализация данных
         if not espObjects[plr] then
             espObjects[plr] = {}
         end
@@ -247,30 +261,70 @@ local function updateESP()
             local rootPart = character:FindFirstChild("HumanoidRootPart")
             local head = character:FindFirstChild("Head")
             if rootPart and head then
-                -- Если нет линий, создаём 4 линии для прямоугольника
                 if not data.boxLines then
                     data.boxLines = {}
                     for i = 1, 4 do
                         local line = Drawing.new("Line")
                         line.Color = Color3.fromRGB(255, 0, 0)
                         line.Thickness = 2
-                        line.Transparency = 0.5
+                        line.Transparency = 0.7
                         line.Visible = false
                         table.insert(data.boxLines, line)
                     end
                 end
-                -- Обновляем позиции линий в RenderStepped (делаем отдельно)
+                -- Обновляем позиции линий
+                local headPos = head.Position
+                local rootPos = rootPart.Position
+                local height = (headPos - rootPos).Magnitude
+                local width = height * 0.4
+
+                local topPos = headPos + Vector3.new(0, 0.5, 0)
+                local bottomPos = rootPos - Vector3.new(0, 0.5, 0)
+
+                local topScreen, topVis = Camera:WorldToViewportPoint(topPos)
+                local bottomScreen, bottomVis = Camera:WorldToViewportPoint(bottomPos)
+
+                if topVis and bottomVis and topScreen.Z > 0 and bottomScreen.Z > 0 then
+                    local topY = topScreen.Y
+                    local bottomY = bottomScreen.Y
+                    local centerX = (topScreen.X + bottomScreen.X) / 2
+                    local boxHeight = math.abs(topY - bottomY)
+                    local boxWidth = boxHeight * 0.4
+
+                    local leftX = centerX - boxWidth / 2
+                    local rightX = centerX + boxWidth / 2
+
+                    local lines = data.boxLines
+                    lines[1].From = Vector2.new(leftX, topY)
+                    lines[1].To = Vector2.new(rightX, topY)
+                    lines[1].Visible = true
+
+                    lines[2].From = Vector2.new(leftX, bottomY)
+                    lines[2].To = Vector2.new(rightX, bottomY)
+                    lines[2].Visible = true
+
+                    lines[3].From = Vector2.new(leftX, topY)
+                    lines[3].To = Vector2.new(leftX, bottomY)
+                    lines[3].Visible = true
+
+                    lines[4].From = Vector2.new(rightX, topY)
+                    lines[4].To = Vector2.new(rightX, bottomY)
+                    lines[4].Visible = true
+                else
+                    if data.boxLines then
+                        for _, line in pairs(data.boxLines) do
+                            line.Visible = false
+                        end
+                    end
+                end
             else
-                -- Если частей нет, удаляем линии
                 if data.boxLines then
                     for _, line in pairs(data.boxLines) do
-                        line:Remove()
+                        line.Visible = false
                     end
-                    data.boxLines = nil
                 end
             end
         else
-            -- Если бокс выключен, удаляем линии
             if data.boxLines then
                 for _, line in pairs(data.boxLines) do
                     line:Remove()
@@ -279,95 +333,13 @@ local function updateESP()
             end
         end
     end
-
-    -- Удаляем записи для игроков, которые больше не существуют или не враги
-    for plr, data in pairs(espObjects) do
-        if not plr or not plr.Parent or not isEnemy(plr) or not plr.Character then
-            if data.highlight then data.highlight:Destroy() end
-            if data.boxLines then
-                for _, line in pairs(data.boxLines) do
-                    line:Remove()
-                end
-            end
-            espObjects[plr] = nil
-        end
-    end
-end
-
--- Отдельный цикл для обновления позиций боксов (если включены)
-RunService.RenderStepped:Connect(function()
-    if not boxEnabled then return end
-    local hasDrawing = pcall(function() return Drawing end) and Drawing ~= nil
-    if not hasDrawing then return end
-
-    for plr, data in pairs(espObjects) do
-        if not data.boxLines then continue end
-        local character = plr.Character
-        if not character then continue end
-        local rootPart = character:FindFirstChild("HumanoidRootPart")
-        local head = character:FindFirstChild("Head")
-        if not rootPart or not head then
-            for _, line in pairs(data.boxLines) do
-                line.Visible = false
-            end
-            continue
-        end
-
-        -- Вычисляем экранные координаты для вершин бокса (упрощённо: берём размеры от Head до Root)
-        local headPos = head.Position
-        local rootPos = rootPart.Position
-        local vector = (headPos - rootPos)
-        local height = vector.Magnitude
-        local width = height * 0.5
-
-        -- Получаем верхнюю и нижнюю точки (приблизительно)
-        local topPos = headPos + Vector3.new(0, 0.5, 0) -- чуть выше головы
-        local bottomPos = rootPos - Vector3.new(0, 0.5, 0) -- чуть ниже ног
-
-        local topScreen, topVis = Camera:WorldToViewportPoint(topPos)
-        local bottomScreen, bottomVis = Camera:WorldToViewportPoint(bottomPos)
-
-        if not topVis or not bottomVis or topScreen.Z < 0 or bottomScreen.Z < 0 then
-            for _, line in pairs(data.boxLines) do
-                line.Visible = false
-            end
-            continue
-        end
-
-        local topY = topScreen.Y
-        local bottomY = bottomScreen.Y
-        local centerX = (topScreen.X + bottomScreen.X) / 2
-        local boxHeight = math.abs(topY - bottomY)
-        local boxWidth = boxHeight * 0.4
-
-        local leftX = centerX - boxWidth / 2
-        local rightX = centerX + boxWidth / 2
-
-        -- Обновляем линии
-        local lines = data.boxLines
-        -- Верхняя линия
-        lines[1].From = Vector2.new(leftX, topY)
-        lines[1].To = Vector2.new(rightX, topY)
-        lines[1].Visible = true
-        -- Нижняя
-        lines[2].From = Vector2.new(leftX, bottomY)
-        lines[2].To = Vector2.new(rightX, bottomY)
-        lines[2].Visible = true
-        -- Левая
-        lines[3].From = Vector2.new(leftX, topY)
-        lines[3].To = Vector2.new(leftX, bottomY)
-        lines[3].Visible = true
-        -- Правая
-        lines[4].From = Vector2.new(rightX, topY)
-        lines[4].To = Vector2.new(rightX, bottomY)
-        lines[4].Visible = true
-    end
 end)
 
--- Создание интерфейса вкладки ESP
+-- ============================================================
+--  ИНТЕРФЕЙС ВКЛАДКИ ESP (переключатели)
+-- ============================================================
 local espPage = pages["Esp"] -- уже есть
 
--- Разделитель
 local dividerEsp = Instance.new("Frame")
 dividerEsp.Size = UDim2.new(0, 2, 1, 0)
 dividerEsp.Position = UDim2.new(0.5, -1, 0, 0)
@@ -376,14 +348,13 @@ dividerEsp.BackgroundTransparency = 0.4
 dividerEsp.BorderSizePixel = 0
 dividerEsp.Parent = espPage
 
--- Левая половина (настройки ESP)
 local leftHalfEsp = Instance.new("Frame")
 leftHalfEsp.Size = UDim2.new(0.5, -5, 1, 0)
 leftHalfEsp.Position = UDim2.new(0, 5, 0, 0)
 leftHalfEsp.BackgroundTransparency = 1
 leftHalfEsp.Parent = espPage
 
--- Строка для ESP
+-- ESP Toggle
 local rowEsp = Instance.new("Frame")
 rowEsp.Size = UDim2.new(1, 0, 0, 40)
 rowEsp.Position = UDim2.new(0, 0, 0.1, 0)
@@ -426,7 +397,6 @@ local function updateEspState(state)
         toggleEsp.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
         toggleEsp.Text = "OFF"
     end
-    updateESP() -- обновить видимость
 end
 
 toggleEsp.MouseButton1Click:Connect(function()
@@ -434,7 +404,7 @@ toggleEsp.MouseButton1Click:Connect(function()
 end)
 updateEspState(false)
 
--- Строка для 2D Box
+-- 2D Box Toggle
 local rowBox = Instance.new("Frame")
 rowBox.Size = UDim2.new(1, 0, 0, 40)
 rowBox.Position = UDim2.new(0, 0, 0.25, 0)
@@ -477,7 +447,6 @@ local function updateBoxState(state)
         toggleBox.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
         toggleBox.Text = "OFF"
     end
-    updateESP()
 end
 
 toggleBox.MouseButton1Click:Connect(function()
@@ -593,4 +562,4 @@ tabButtons["Aim"].BackgroundColor3 = Color3.fromRGB(60, 60, 70)
 tabButtons["Aim"].BackgroundTransparency = 0.1
 tabButtons["Aim"].TextColor3 = Color3.fromRGB(255, 255, 255)
 
-print("✅ Zertyx Menu (ESP + 2D Box) загружен!")                   
+print("✅ Zertyx Menu (ESP + 2D Box) загружен!")
