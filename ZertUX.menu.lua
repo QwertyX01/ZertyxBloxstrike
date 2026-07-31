@@ -1,5 +1,5 @@
 -- =====================================================
---  Zertyx Menu (ESP + 2D Box, полная переработка)
+--  Zertyx Menu (с отладочным ESP + вывод структуры)
 -- =====================================================
 
 local player = game:GetService("Players").LocalPlayer
@@ -164,30 +164,77 @@ rightLabelAim.TextYAlignment = Enum.TextYAlignment.Center
 rightLabelAim.Parent = rightHalfAim
 
 -- ============================================================
---  ВКЛАДКА ESP (с переключателями)
+--  ВКЛАДКА ESP (с отладкой)
 -- ============================================================
 local espPage = pages["Esp"]
 local espEnabled = false
 local boxEnabled = false
 
 -- Хранилище объектов ESP
-local espObjects = {} -- { [player] = {highlight, boxLines} }
+local espObjects = {}
 
--- Проверка врага (надёжная)
+-- Проверка Drawing API
+local hasDrawing = pcall(function() return Drawing end) and Drawing ~= nil
+print("🔍 Drawing API доступен:", hasDrawing)
+
+-- Функция для вывода структуры персонажа
+local function printCharacterStructure(plr)
+    local char = plr.Character
+    if not char then
+        print("❌ Персонаж игрока", plr.Name, "отсутствует")
+        return
+    end
+    print("📌 Структура персонажа", plr.Name, ":")
+    print("  - Дочерние объекты:")
+    for _, child in pairs(char:GetChildren()) do
+        print("    -", child.Name, "(", child.ClassName, ")")
+    end
+    local hasHumanoid = char:FindFirstChild("Humanoid")
+    local hasHead = char:FindFirstChild("Head")
+    local hasHRP = char:FindFirstChild("HumanoidRootPart")
+    local hasRoot = char:FindFirstChild("RootPart")
+    local hasUpperTorso = char:FindFirstChild("UpperTorso")
+    local hasTorso = char:FindFirstChild("Torso")
+    print("  - Ключевые части:")
+    print("    - Humanoid:", hasHumanoid and "✅" or "❌")
+    if hasHumanoid then
+        print("      Health:", hasHumanoid.Health)
+    end
+    print("    - Head:", hasHead and "✅" or "❌")
+    print("    - HumanoidRootPart:", hasHRP and "✅" or "❌")
+    print("    - RootPart:", hasRoot and "✅" or "❌")
+    print("    - UpperTorso:", hasUpperTorso and "✅" or "❌")
+    print("    - Torso:", hasTorso and "✅" or "❌")
+end
+
+-- Функция для поиска корневой части (универсальная)
+local function getRootPart(character)
+    if not character then return nil end
+    local root = character:FindFirstChild("HumanoidRootPart")
+    if root then return root end
+    root = character:FindFirstChild("RootPart")
+    if root then return root end
+    root = character:FindFirstChild("UpperTorso")
+    if root then return root end
+    root = character:FindFirstChild("Torso")
+    return root
+end
+
+-- Проверка врага
 local function isEnemy(plr)
     if plr == player then return false end
     if not plr.Character then return false end
     local humanoid = plr.Character:FindFirstChild("Humanoid")
-    if not humanoid or humanoid.Health <= 0 then return false end
-
-    -- Проверка команд
-    if player.Team and plr.Team then
-        return player.Team ~= plr.Team
+    if not humanoid then
+        return true -- если нет Humanoid, считаем врагом (возможно, NPC)
     end
-    if player.TeamColor and plr.TeamColor then
-        return player.TeamColor ~= plr.TeamColor
+    if humanoid.Health <= 0 then return false end
+    if player.Team and plr.Team and player.Team == plr.Team then
+        return false
     end
-    -- Если команды нет, считаем всех других врагами
+    if player.TeamColor and plr.TeamColor and player.TeamColor == plr.TeamColor then
+        return false
+    end
     return true
 end
 
@@ -204,11 +251,34 @@ local function clearESP()
     espObjects = {}
 end
 
--- Проверка Drawing API
-local hasDrawing = pcall(function() return Drawing end) and Drawing ~= nil
+-- Дамп структуры всех игроков при запуске
+local function dumpAllPlayers()
+    print("========== ДАМП ВСЕХ ИГРОКОВ ==========")
+    for _, plr in pairs(Players:GetPlayers()) do
+        printCharacterStructure(plr)
+    end
+    print("========================================")
+end
 
--- Основной цикл обновления ESP (вызывается каждый кадр)
+task.wait(1) -- даём игре загрузить персонажей
+dumpAllPlayers()
+
+-- Обновляем дамп при появлении новых игроков
+Players.PlayerAdded:Connect(function(plr)
+    plr.CharacterAdded:Connect(function()
+        task.wait(0.5)
+        print("🆕 Новый игрок:", plr.Name)
+        printCharacterStructure(plr)
+    end)
+end)
+
+-- Основной цикл обновления ESP
 RunService.RenderStepped:Connect(function()
+    local playersFound = 0
+    local enemiesFound = 0
+    local createdHighlight = 0
+    local createdBox = 0
+
     -- Удаляем объекты для мёртвых или не-врагов
     for plr, data in pairs(espObjects) do
         if not plr or not plr.Parent or not isEnemy(plr) or not plr.Character then
@@ -224,19 +294,28 @@ RunService.RenderStepped:Connect(function()
 
     -- Обходим всех игроков
     for _, plr in pairs(Players:GetPlayers()) do
-        if not isEnemy(plr) then continue end
+        playersFound = playersFound + 1
+        if not isEnemy(plr) then
+            continue
+        end
+        enemiesFound = enemiesFound + 1
         local character = plr.Character
         if not character then continue end
         local humanoid = character:FindFirstChild("Humanoid")
-        if not humanoid or humanoid.Health <= 0 then continue end
+        if humanoid and humanoid.Health <= 0 then continue end
 
-        -- Инициализация данных
+        local rootPart = getRootPart(character)
+        local head = character:FindFirstChild("Head")
+        if not rootPart or not head then
+            continue
+        end
+
         if not espObjects[plr] then
             espObjects[plr] = {}
         end
         local data = espObjects[plr]
 
-        -- Highlight (если включён ESP)
+        -- Highlight
         if espEnabled then
             if not data.highlight then
                 local highlight = Instance.new("Highlight")
@@ -248,6 +327,8 @@ RunService.RenderStepped:Connect(function()
                 highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
                 highlight.Parent = character
                 data.highlight = highlight
+                createdHighlight = createdHighlight + 1
+                print("✅ Highlight создан для", plr.Name)
             end
         else
             if data.highlight then
@@ -256,67 +337,59 @@ RunService.RenderStepped:Connect(function()
             end
         end
 
-        -- 2D Box (если включён и доступен Drawing)
+        -- 2D Box
         if boxEnabled and hasDrawing then
-            local rootPart = character:FindFirstChild("HumanoidRootPart")
-            local head = character:FindFirstChild("Head")
-            if rootPart and head then
-                if not data.boxLines then
-                    data.boxLines = {}
-                    for i = 1, 4 do
-                        local line = Drawing.new("Line")
-                        line.Color = Color3.fromRGB(255, 0, 0)
-                        line.Thickness = 2
-                        line.Transparency = 0.7
-                        line.Visible = false
-                        table.insert(data.boxLines, line)
-                    end
+            if not data.boxLines then
+                data.boxLines = {}
+                for i = 1, 4 do
+                    local line = Drawing.new("Line")
+                    line.Color = Color3.fromRGB(255, 0, 0)
+                    line.Thickness = 2
+                    line.Transparency = 0.7
+                    line.Visible = false
+                    table.insert(data.boxLines, line)
                 end
-                -- Обновляем позиции линий
-                local headPos = head.Position
-                local rootPos = rootPart.Position
-                local height = (headPos - rootPos).Magnitude
-                local width = height * 0.4
+                createdBox = createdBox + 1
+                print("✅ 2D Box создан для", plr.Name)
+            end
+            -- Обновляем позиции
+            local headPos = head.Position
+            local rootPos = rootPart.Position
+            local height = (headPos - rootPos).Magnitude
+            local width = height * 0.4
 
-                local topPos = headPos + Vector3.new(0, 0.5, 0)
-                local bottomPos = rootPos - Vector3.new(0, 0.5, 0)
+            local topPos = headPos + Vector3.new(0, 0.5, 0)
+            local bottomPos = rootPos - Vector3.new(0, 0.5, 0)
 
-                local topScreen, topVis = Camera:WorldToViewportPoint(topPos)
-                local bottomScreen, bottomVis = Camera:WorldToViewportPoint(bottomPos)
+            local topScreen, topVis = Camera:WorldToViewportPoint(topPos)
+            local bottomScreen, bottomVis = Camera:WorldToViewportPoint(bottomPos)
 
-                if topVis and bottomVis and topScreen.Z > 0 and bottomScreen.Z > 0 then
-                    local topY = topScreen.Y
-                    local bottomY = bottomScreen.Y
-                    local centerX = (topScreen.X + bottomScreen.X) / 2
-                    local boxHeight = math.abs(topY - bottomY)
-                    local boxWidth = boxHeight * 0.4
+            if topVis and bottomVis and topScreen.Z > 0 and bottomScreen.Z > 0 then
+                local topY = topScreen.Y
+                local bottomY = bottomScreen.Y
+                local centerX = (topScreen.X + bottomScreen.X) / 2
+                local boxHeight = math.abs(topY - bottomY)
+                local boxWidth = boxHeight * 0.4
 
-                    local leftX = centerX - boxWidth / 2
-                    local rightX = centerX + boxWidth / 2
+                local leftX = centerX - boxWidth / 2
+                local rightX = centerX + boxWidth / 2
 
-                    local lines = data.boxLines
-                    lines[1].From = Vector2.new(leftX, topY)
-                    lines[1].To = Vector2.new(rightX, topY)
-                    lines[1].Visible = true
+                local lines = data.boxLines
+                lines[1].From = Vector2.new(leftX, topY)
+                lines[1].To = Vector2.new(rightX, topY)
+                lines[1].Visible = true
 
-                    lines[2].From = Vector2.new(leftX, bottomY)
-                    lines[2].To = Vector2.new(rightX, bottomY)
-                    lines[2].Visible = true
+                lines[2].From = Vector2.new(leftX, bottomY)
+                lines[2].To = Vector2.new(rightX, bottomY)
+                lines[2].Visible = true
 
-                    lines[3].From = Vector2.new(leftX, topY)
-                    lines[3].To = Vector2.new(leftX, bottomY)
-                    lines[3].Visible = true
+                lines[3].From = Vector2.new(leftX, topY)
+                lines[3].To = Vector2.new(leftX, bottomY)
+                lines[3].Visible = true
 
-                    lines[4].From = Vector2.new(rightX, topY)
-                    lines[4].To = Vector2.new(rightX, bottomY)
-                    lines[4].Visible = true
-                else
-                    if data.boxLines then
-                        for _, line in pairs(data.boxLines) do
-                            line.Visible = false
-                        end
-                    end
-                end
+                lines[4].From = Vector2.new(rightX, topY)
+                lines[4].To = Vector2.new(rightX, bottomY)
+                lines[4].Visible = true
             else
                 if data.boxLines then
                     for _, line in pairs(data.boxLines) do
@@ -333,12 +406,22 @@ RunService.RenderStepped:Connect(function()
             end
         end
     end
+
+    -- Выводим сводку раз в 5 секунд
+    if tick() % 5 < 0.05 then
+        print("📊 Статистика кадра:")
+        print("  - Всего игроков:", playersFound)
+        print("  - Врагов (потенциальных целей):", enemiesFound)
+        print("  - Создано Highlight:", createdHighlight)
+        print("  - Создано 2D Box:", createdBox)
+        print("  - Объектов ESP в памяти:", table.count(espObjects) or "неизвестно")
+    end
 end)
 
 -- ============================================================
 --  ИНТЕРФЕЙС ВКЛАДКИ ESP (переключатели)
 -- ============================================================
-local espPage = pages["Esp"] -- уже есть
+local espPage = pages["Esp"]
 
 local dividerEsp = Instance.new("Frame")
 dividerEsp.Size = UDim2.new(0, 2, 1, 0)
@@ -562,4 +645,4 @@ tabButtons["Aim"].BackgroundColor3 = Color3.fromRGB(60, 60, 70)
 tabButtons["Aim"].BackgroundTransparency = 0.1
 tabButtons["Aim"].TextColor3 = Color3.fromRGB(255, 255, 255)
 
-print("✅ Zertyx Menu (ESP + 2D Box) загружен!")
+print("✅ Zertyx Menu с отладочным ESP загружен!")
