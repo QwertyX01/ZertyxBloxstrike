@@ -1,5 +1,5 @@
 -- =====================================================
---  Zertyx Menu (ESP стабильный)
+--  Zertyx Menu (ESP стабильный, работает после респавна)
 -- =====================================================
 
 local player = game:GetService("Players").LocalPlayer
@@ -151,7 +151,7 @@ rightLabelAim.TextYAlignment = Enum.TextYAlignment.Center
 rightLabelAim.Parent = rightHalfAim
 
 -- ============================================================
---  ВКЛАДКА ESP
+--  ВКЛАДКА ESP (стабильная, работает после респавна)
 -- ============================================================
 local espPage = pages["Esp"]
 local espEnabled = false
@@ -160,16 +160,6 @@ local boxEnabled = false
 local espObjects = {}
 local hue = 0
 local hasDrawing = pcall(function() return Drawing end) and Drawing ~= nil
-
--- УПРОЩЁННАЯ ПРОВЕРКА ВРАГА (без команд, без Health)
-local function isEnemy(plr)
-    if plr == player then return false end
-    if not plr.Character then return false end
-    local humanoid = plr.Character:FindFirstChild("Humanoid")
-    if not humanoid then return false end
-    -- Считаем врагами всех, кроме себя, даже мёртвых (но мёртвые не имеют HumanoidRootPart)
-    return true
-end
 
 local function getRootPart(character)
     if not character then return nil end
@@ -180,27 +170,26 @@ local function updateESP()
     hue = (hue + 0.002) % 1
     local dynamicColor = Color3.fromHSV(hue, 0.8, 1)
 
-    -- Удаляем объекты только если игрок мёртв или нет персонажа
-    for plr, data in pairs(espObjects) do
-        if not plr or not plr.Parent or not plr.Character then
-            if data.highlight then data.highlight:Destroy() end
-            if data.boxLines then
-                for _, line in pairs(data.boxLines) do
-                    line:Remove()
-                end
-            end
-            espObjects[plr] = nil
-        end
-    end
-
+    -- Проверяем всех игроков
     for _, plr in pairs(Players:GetPlayers()) do
-        if not isEnemy(plr) then continue end
+        if plr == player then
+            -- Удаляем объекты для себя, если они есть
+            local data = espObjects[plr]
+            if data then
+                if data.highlight then data.highlight:Destroy() end
+                if data.boxLines then
+                    for _, line in pairs(data.boxLines) do
+                        line:Remove()
+                    end
+                end
+                espObjects[plr] = nil
+            end
+            continue
+        end
+
         local character = plr.Character
-        if not character then continue end
-        local humanoid = character:FindFirstChild("Humanoid")
-        if not humanoid then continue end
-        -- Если игрок мёртв, удаляем объекты (но не удаляем, чтобы он не пропал сразу)
-        if humanoid.Health <= 0 then
+        if not character then
+            -- Если персонажа нет, удаляем объекты
             local data = espObjects[plr]
             if data then
                 if data.highlight then data.highlight:Destroy() end
@@ -216,12 +205,39 @@ local function updateESP()
 
         local rootPart = getRootPart(character)
         local head = character:FindFirstChild("Head")
-        if not rootPart or not head then continue end
+        if not rootPart or not head then
+            -- Если нет частей, удаляем объекты
+            local data = espObjects[plr]
+            if data then
+                if data.highlight then data.highlight:Destroy() end
+                if data.boxLines then
+                    for _, line in pairs(data.boxLines) do
+                        line:Remove()
+                    end
+                end
+                espObjects[plr] = nil
+            end
+            continue
+        end
+
+        -- Проверяем, изменился ли персонаж
+        local data = espObjects[plr]
+        if data and data.character ~= character then
+            -- Персонаж изменился (респавн) – удаляем старые объекты
+            if data.highlight then data.highlight:Destroy() end
+            if data.boxLines then
+                for _, line in pairs(data.boxLines) do
+                    line:Remove()
+                end
+            end
+            espObjects[plr] = nil
+            data = nil
+        end
 
         if not espObjects[plr] then
-            espObjects[plr] = {}
+            espObjects[plr] = { character = character }
         end
-        local data = espObjects[plr]
+        data = espObjects[plr]
 
         -- Highlight
         if espEnabled then
@@ -244,7 +260,6 @@ local function updateESP()
             if data.highlight then
                 data.highlight:Destroy()
                 data.highlight = nil
-                print("❌ Highlight удалён для", plr.Name)
             end
         end
 
@@ -312,7 +327,6 @@ local function updateESP()
                     line:Remove()
                 end
                 data.boxLines = nil
-                print("❌ 2D Box удалён для", plr.Name)
             end
         end
     end
@@ -515,4 +529,4 @@ tabButtons["Aim"].BackgroundColor3 = Color3.fromRGB(60, 60, 70)
 tabButtons["Aim"].BackgroundTransparency = 0.1
 tabButtons["Aim"].TextColor3 = Color3.fromRGB(255, 255, 255)
 
-print("✅ Zertyx Menu (стабильный ESP) загружен!")
+print("✅ Zertyx Menu (ESP стабильный, работает после респавна) загружен!")
