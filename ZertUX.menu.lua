@@ -1,5 +1,5 @@
 -- =====================================================
---  Zertyx Menu (ESP + Health Bar, фикс)
+--  Zertyx Menu (ESP + Health Bar + звук при переключении вкладок)
 -- =====================================================
 
 local player = game:GetService("Players").LocalPlayer
@@ -12,6 +12,19 @@ local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local Camera = workspace.CurrentCamera
 local Players = game:GetService("Players")
+local SoundService = game:GetService("SoundService")
+
+-- ============================================================
+--  ЗВУК (ТВОЯ ССЫЛКА)
+-- ============================================================
+local clickSound = Instance.new("Sound")
+clickSound.SoundId = "https://www.image2url.com/r2/default/audio/1785482101020-da6f6692-cbe3-48a5-8c38-900a5f825d88.mp3"
+clickSound.Volume = 0.5
+clickSound.Parent = SoundService
+
+local function playClickSound()
+    clickSound:Play()
+end
 
 -- ============================================================
 --  ОСНОВНОЕ МЕНЮ
@@ -151,7 +164,7 @@ rightLabelAim.TextYAlignment = Enum.TextYAlignment.Center
 rightLabelAim.Parent = rightHalfAim
 
 -- ============================================================
---  ВКЛАДКА ESP (FIX)
+--  ВКЛАДКА ESP
 -- ============================================================
 local espPage = pages["Esp"]
 local espEnabled = true
@@ -162,8 +175,6 @@ local espObjects = {}
 local hue = 0
 local hasDrawing = pcall(function() return Drawing end) and Drawing ~= nil
 local needRefresh = false
-
-print("🔍 ESP загружен! espEnabled =", espEnabled)
 
 local function getRootPart(character)
     if not character then return nil end
@@ -184,7 +195,6 @@ local function fullRefreshESP()
     end
     espObjects = {}
     needRefresh = true
-    print("🔄 ESP полный сброс")
 end
 
 local function updateESP()
@@ -194,18 +204,6 @@ local function updateESP()
 
     hue = (hue + 0.002) % 1
     local dynamicColor = Color3.fromHSV(hue, 0.8, 1)
-
-    -- Сначала проверяем, включён ли ESP
-    if not espEnabled then
-        -- Если ESP выключен, удаляем все Highlight
-        for plr, data in pairs(espObjects) do
-            if data.highlight then
-                data.highlight:Destroy()
-                data.highlight = nil
-            end
-        end
-        -- Но продолжаем обрабатывать игроков, чтобы создать Box и Health Bar (если они включены)
-    end
 
     for _, plr in pairs(Players:GetPlayers()) do
         if plr == player then
@@ -300,7 +298,7 @@ local function updateESP()
         end
         data = espObjects[plr]
 
-        -- === ESP (HIGHLIGHT) ===
+        -- ESP (HIGHLIGHT)
         if espEnabled then
             if not data.highlight then
                 local highlight = Instance.new("Highlight")
@@ -312,7 +310,6 @@ local function updateESP()
                 highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
                 highlight.Parent = character
                 data.highlight = highlight
-                print("✅ Highlight создан для", plr.Name)
             else
                 data.highlight.FillColor = dynamicColor
                 data.highlight.OutlineColor = dynamicColor
@@ -324,7 +321,7 @@ local function updateESP()
             end
         end
 
-        -- === 2D BOX ===
+        -- 2D BOX
         if boxEnabled and hasDrawing then
             if not data.boxLines then
                 data.boxLines = {}
@@ -336,7 +333,6 @@ local function updateESP()
                     line.Visible = false
                     table.insert(data.boxLines, line)
                 end
-                print("✅ 2D Box создан для", plr.Name)
             end
             local headPos = head.Position
             local rootPos = rootPart.Position
@@ -391,7 +387,7 @@ local function updateESP()
             end
         end
 
-        -- === HEALTH BAR ===
+        -- HEALTH BAR
         if healthEnabled then
             if not data.healthBar then
                 local billboard = Instance.new("BillboardGui")
@@ -429,7 +425,6 @@ local function updateESP()
                 data.healthBar = billboard
                 data.healthFill = fill
                 data.healthLabel = label
-                print("✅ Health Bar создан для", plr.Name)
             end
 
             local health = humanoid.Health
@@ -540,19 +535,16 @@ end
 createCheckbox(leftHalfEsp, "ESP", 10, true, function(state)
     espEnabled = state
     fullRefreshESP()
-    print("📌 espEnabled =", state)
 end)
 
 createCheckbox(leftHalfEsp, "2D Box", 40, false, function(state)
     boxEnabled = state
     fullRefreshESP()
-    print("📌 boxEnabled =", state)
 end)
 
 createCheckbox(leftHalfEsp, "Health Bar", 70, false, function(state)
     healthEnabled = state
     fullRefreshESP()
-    print("📌 healthEnabled =", state)
 end)
 
 local rightHalfEsp = Instance.new("Frame")
@@ -573,7 +565,7 @@ rightLabelEsp.TextYAlignment = Enum.TextYAlignment.Center
 rightLabelEsp.Parent = rightHalfEsp
 
 -- ============================================================
---  НИЖНИЕ ВКЛАДКИ
+--  НИЖНИЕ ВКЛАДКИ (со звуком при переключении)
 -- ============================================================
 local tabsBar = Instance.new("Frame")
 tabsBar.Name = "TabsBar"
@@ -627,6 +619,9 @@ for i, name in ipairs(tabNames) do
     tabButtons[name] = btn
 
     btn.MouseButton1Click:Connect(function()
+        -- ВОСПРОИЗВОДИМ ЗВУК
+        playClickSound()
+
         for pageName, page in pairs(pages) do
             if pageName == name then
                 page.Visible = true
@@ -660,4 +655,4 @@ tabButtons["Aim"].BackgroundColor3 = Color3.fromRGB(60, 60, 70)
 tabButtons["Aim"].BackgroundTransparency = 0.1
 tabButtons["Aim"].TextColor3 = Color3.fromRGB(255, 255, 255)
 
-print("✅ Zertyx Menu (финальный фикс) загружен!")
+print("✅ Zertyx Menu (со звуком) загружен!")
