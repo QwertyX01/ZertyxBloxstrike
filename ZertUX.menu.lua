@@ -1,16 +1,20 @@
--- Zertyx CHEAT v4.6 - THIRD PERSON (FIXED)
+-- Zertyx CHEAT v4.8 - THIRD PERSON + FOV
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
 
 -- НАСТРОЙКИ
 local ESPEnabled = true
 local BigHeadEnabled = false
 local ThirdPersonEnabled = false
+local FOVEnabled = false
 local ZoomDistance = 10
+local FOVValue = 120
 local espObjects = {}
 local bigHeadObjects = {}
 local originalCameraOffset = nil
+local originalFOV = nil
 
 -- === ГЛАВНОЕ МЕНЮ ===
 local ScreenGui = Instance.new("ScreenGui")
@@ -271,25 +275,68 @@ CreateToggleRow(visualsContent, "Big Head", BigHeadEnabled, function(state)
 end, yPos)
 yPos = yPos + 50
 
+-- Third Person
 local thirdPersonRow, thirdPersonToggle = CreateToggleRow(visualsContent, "Third Person", ThirdPersonEnabled, function(state)
     ThirdPersonEnabled = state
     if state then 
         zoomSlider.Visible = true
-        SetThirdPerson(true)
+        if originalCameraOffset == nil then
+            local char = LocalPlayer.Character
+            if char then
+                local humanoid = char:FindFirstChild("Humanoid")
+                if humanoid then
+                    originalCameraOffset = humanoid.CameraOffset
+                end
+            end
+        end
     else 
         zoomSlider.Visible = false
-        SetThirdPerson(false)
+        local char = LocalPlayer.Character
+        if char then
+            local humanoid = char:FindFirstChild("Humanoid")
+            if humanoid then
+                if originalCameraOffset ~= nil then
+                    humanoid.CameraOffset = originalCameraOffset
+                else
+                    humanoid.CameraOffset = Vector3.new(0, 0, 0)
+                end
+            end
+        end
     end
 end, yPos)
 yPos = yPos + 50
 
 local zoomSlider = CreateSlider(visualsContent, "Zoom", 3, 20, ZoomDistance, function(val)
     ZoomDistance = val
-    if ThirdPersonEnabled then
-        SetThirdPerson(true)
-    end
 end, yPos)
 zoomSlider.Visible = false
+yPos = yPos + 50
+
+-- FOV
+local fovRow, fovToggle = CreateToggleRow(visualsContent, "FOV", FOVEnabled, function(state)
+    FOVEnabled = state
+    if state then 
+        fovSlider.Visible = true
+        if originalFOV == nil then
+            originalFOV = Camera.FieldOfView
+        end
+        Camera.FieldOfView = FOVValue
+    else 
+        fovSlider.Visible = false
+        if originalFOV ~= nil then
+            Camera.FieldOfView = originalFOV
+        end
+    end
+end, yPos)
+yPos = yPos + 50
+
+local fovSlider = CreateSlider(visualsContent, "FOV Value", 70, 120, FOVValue, function(val)
+    FOVValue = val
+    if FOVEnabled then
+        Camera.FieldOfView = FOVValue
+    end
+end, yPos)
+fovSlider.Visible = false
 yPos = yPos + 50
 
 -- AIM TAB
@@ -320,32 +367,22 @@ miscLabel.Font = Enum.Font.GothamBold
 miscLabel.TextXAlignment = Enum.TextXAlignment.Center
 miscLabel.TextYAlignment = Enum.TextYAlignment.Center
 
--- === THIRD PERSON ФУНКЦИИ ===
-function SetThirdPerson(enable)
-    local char = LocalPlayer.Character
-    if not char then return end
-    local humanoid = char:FindFirstChild("Humanoid")
-    if not humanoid then return end
-    
-    if enable then
-        if originalCameraOffset == nil then
-            originalCameraOffset = humanoid.CameraOffset
-        end
-        humanoid.CameraOffset = Vector3.new(0, 2, -ZoomDistance)
-    else
-        if originalCameraOffset ~= nil then
-            humanoid.CameraOffset = originalCameraOffset
-            originalCameraOffset = nil
-        else
-            humanoid.CameraOffset = Vector3.new(0, 0, 0)
+-- === ПРИНУДИТЕЛЬНОЕ ОБНОВЛЕНИЕ КАЖДЫЙ КАДР ===
+RunService.RenderStepped:Connect(function()
+    -- Third Person
+    if ThirdPersonEnabled then
+        local char = LocalPlayer.Character
+        if char then
+            local humanoid = char:FindFirstChild("Humanoid")
+            if humanoid then
+                humanoid.CameraOffset = Vector3.new(0, 2, -ZoomDistance)
+            end
         end
     end
-end
-
-LocalPlayer.CharacterAdded:Connect(function(char)
-    task.wait(0.5)
-    if ThirdPersonEnabled then
-        SetThirdPerson(true)
+    
+    -- FOV
+    if FOVEnabled then
+        Camera.FieldOfView = FOVValue
     end
 end)
 
@@ -446,7 +483,7 @@ function ClearBigHead()
     bigHeadObjects = {}
 end
 
--- === ПОСТОЯННОЕ ОБНОВЛЕНИЕ ===
+-- === ПОСТОЯННОЕ ОБНОВЛЕНИЕ ДЛЯ ESP И BIG HEAD ===
 RunService.Heartbeat:Connect(function()
     for _, targetPlayer in ipairs(Players:GetPlayers()) do
         if targetPlayer ~= LocalPlayer then
@@ -515,7 +552,7 @@ Watermark.Parent = ScreenGui
 Watermark.Size = UDim2.new(0, 200, 0, 30)
 Watermark.Position = UDim2.new(0, 10, 1, -40)
 Watermark.BackgroundTransparency = 1
-Watermark.Text = "Zertyx v4.6 | BloxStrike"
+Watermark.Text = "Zertyx v4.8 | BloxStrike"
 Watermark.TextColor3 = Color3.fromRGB(180, 150, 200)
 Watermark.TextSize = 13
 Watermark.Font = Enum.Font.GothamBold
@@ -550,6 +587,6 @@ _G.Zertyx = {
     ToggleMenu = function() MainFrame.Visible = not MainFrame.Visible end
 }
 
-print("ZERTYX v4.6 LOADED!")
+print("ZERTYX v4.8 LOADED!")
 print("Press ≡ to open menu")
-print("ESP: ON | Big Head: OFF | Third Person: OFF")
+print("ESP: ON | Big Head: OFF | Third Person: OFF | FOV: OFF")
