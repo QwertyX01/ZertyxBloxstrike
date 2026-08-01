@@ -1,4 +1,4 @@
--- Zertyx CHEAT v5.0 - WHITE THEME + ANIMATIONS
+-- Zertyx CHEAT v5.0 - WHITE THEME + ANIMATIONS + MISC
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
@@ -18,6 +18,11 @@ local bigHeadObjects = {}
 local originalCameraOffset = nil
 local originalFOV = nil
 local originalWalkSpeed = nil
+
+-- УДАЛЯЕМ СТАРОЕ МЕНЮ (если есть)
+pcall(function()
+    LocalPlayer.PlayerGui:FindFirstChild("Zertyx"):Destroy()
+end)
 
 -- === ГЛАВНОЕ МЕНЮ ===
 local ScreenGui = Instance.new("ScreenGui")
@@ -41,7 +46,7 @@ local MainCorner = Instance.new("UICorner")
 MainCorner.Parent = MainFrame
 MainCorner.CornerRadius = UDim.new(0, 24)
 
--- Тень (опционально для красоты)
+-- Тень
 local Shadow = Instance.new("ImageLabel")
 Shadow.Parent = MainFrame
 Shadow.Size = UDim2.new(1, 20, 1, 20)
@@ -123,7 +128,7 @@ for i = 1, 3 do
     tabContents[tabs[i]] = content
     
     btn.MouseButton1Click:Connect(function()
-        -- Анимация: плавное изменение цвета и размера
+        -- Анимация: плавное изменение цвета
         for name, b in pairs(tabBtns) do
             local tween = TweenService:Create(b, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
                 BackgroundColor3 = Color3.fromRGB(240, 240, 240),
@@ -141,7 +146,7 @@ for i = 1, 3 do
     end)
 end
 
--- Активируем первую вкладку с анимацией
+-- Активируем первую вкладку
 local firstBtn = tabBtns["Visuals"]
 if firstBtn then
     firstBtn.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
@@ -368,6 +373,8 @@ end, yPos)
 fovSlider.Visible = false
 yPos = yPos + 50
 
+visualsContent.CanvasSize = UDim2.new(0, 0, 0, yPos + 20)
+
 -- === СОЗДАНИЕ ЭЛЕМЕНТОВ В MISC ===
 local miscContent = tabContents["Misc"]
 local miscY = 10
@@ -402,10 +409,6 @@ CreateToggleRow(miscContent, "Move before time", MoveBeforeTimeEnabled, function
 end, miscY)
 miscY = miscY + 50
 
--- === ОБНОВЛЕНИЕ РАЗМЕРОВ КОНТЕНТА ===
--- Для visualsContent обновим CanvasSize вручную (но он уже установлен через добавление элементов)
--- Просто добавим небольшой запас
-visualsContent.CanvasSize = UDim2.new(0, 0, 0, yPos + 20)
 miscContent.CanvasSize = UDim2.new(0, 0, 0, miscY + 20)
 
 -- === ФУНКЦИИ ДЛЯ ПРИНУДИТЕЛЬНОГО ОБНОВЛЕНИЯ ===
