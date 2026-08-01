@@ -1,11 +1,11 @@
--- Zertyx CHEAT v5.0 - WHITE THEME + ANIMATIONS + MISC
+-- Zertyx CHEAT v5.1 - WHITE HEADER + FIXED TABS
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
--- НАСТРОЙКИ
+-- НАСТРОЙКИ (все функции по умолчанию выключены, кроме ESP)
 local ESPEnabled = true
 local BigHeadEnabled = false
 local ThirdPersonEnabled = false
@@ -19,18 +19,18 @@ local originalCameraOffset = nil
 local originalFOV = nil
 local originalWalkSpeed = nil
 
--- УДАЛЯЕМ СТАРОЕ МЕНЮ (если есть)
+-- УДАЛЯЕМ СТАРОЕ МЕНЮ
 pcall(function()
     LocalPlayer.PlayerGui:FindFirstChild("Zertyx"):Destroy()
 end)
 
--- === ГЛАВНОЕ МЕНЮ ===
+-- === GUI ===
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 ScreenGui.Name = "Zertyx"
 ScreenGui.ResetOnSpawn = false
 
--- === МЕНЮ (БЕЛЫЙ ФОН) ===
+-- === ОСНОВНАЯ РАМКА (БЕЛЫЙ ФОН) ===
 local MainFrame = Instance.new("Frame")
 MainFrame.Parent = ScreenGui
 MainFrame.Size = UDim2.new(0, 640, 0, 420)
@@ -41,7 +41,6 @@ MainFrame.BorderSizePixel = 0
 MainFrame.ClipsDescendants = true
 MainFrame.Visible = false
 
--- Скругление углов (более мягкое)
 local MainCorner = Instance.new("UICorner")
 MainCorner.Parent = MainFrame
 MainCorner.CornerRadius = UDim.new(0, 24)
@@ -56,11 +55,27 @@ Shadow.Image = "rbxassetid://1317777270"
 Shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
 Shadow.ImageTransparency = 0.5
 
--- === ЗАГОЛОВОК (В ЛЕВЫЙ УГОЛ, КРАСНЫЙ) ===
+-- === ВЕРХНЯЯ ПАНЕЛЬ (БЕЛАЯ, НЕ СЕРАЯ) ===
+local Header = Instance.new("Frame")
+Header.Parent = MainFrame
+Header.Size = UDim2.new(1, 0, 0, 48)
+Header.Position = UDim2.new(0, 0, 0, 0)
+Header.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- БЕЛЫЙ
+Header.BackgroundTransparency = 0
+Header.BorderSizePixel = 0
+-- небольшая разделительная линия снизу
+local BottomLine = Instance.new("Frame")
+BottomLine.Parent = Header
+BottomLine.Size = UDim2.new(1, 0, 0, 1)
+BottomLine.Position = UDim2.new(0, 0, 1, 0)
+BottomLine.BackgroundColor3 = Color3.fromRGB(230, 230, 230)
+BottomLine.BorderSizePixel = 0
+
+-- === ЗАГОЛОВОК (КРАСНЫЙ) ===
 local Title = Instance.new("TextLabel")
-Title.Parent = MainFrame
-Title.Size = UDim2.new(0, 200, 0, 40)
-Title.Position = UDim2.new(0, 16, 0, 8)
+Title.Parent = Header
+Title.Size = UDim2.new(0, 200, 1, 0)
+Title.Position = UDim2.new(0, 16, 0, 0)
 Title.BackgroundTransparency = 1
 Title.Text = "Zertyx"
 Title.TextColor3 = Color3.fromRGB(255, 0, 0)
@@ -69,20 +84,20 @@ Title.Font = Enum.Font.GothamBold
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.TextYAlignment = Enum.TextYAlignment.Center
 
--- Версия (маленькая)
+-- Версия
 local Version = Instance.new("TextLabel")
-Version.Parent = MainFrame
+Version.Parent = Header
 Version.Size = UDim2.new(0, 50, 0, 20)
 Version.Position = UDim2.new(0, 120, 0, 28)
 Version.BackgroundTransparency = 1
-Version.Text = "v5.0"
+Version.Text = "v5.1"
 Version.TextColor3 = Color3.fromRGB(150, 150, 150)
 Version.TextSize = 12
 Version.Font = Enum.Font.GothamMedium
 Version.TextXAlignment = Enum.TextXAlignment.Left
 Version.TextYAlignment = Enum.TextYAlignment.Top
 
--- === ВКЛАДКИ ===
+-- === ВКЛАДКИ (расположены под заголовком) ===
 local TabContainer = Instance.new("Frame")
 TabContainer.Parent = MainFrame
 TabContainer.Size = UDim2.new(1, 0, 0, 40)
@@ -110,7 +125,7 @@ for i = 1, 3 do
     
     local corner = Instance.new("UICorner")
     corner.Parent = btn
-    corner.CornerRadius = UDim.new(0, 16) -- мягкие углы
+    corner.CornerRadius = UDim.new(0, 16)
     
     local content = Instance.new("ScrollingFrame")
     content.Parent = MainFrame
@@ -128,7 +143,6 @@ for i = 1, 3 do
     tabContents[tabs[i]] = content
     
     btn.MouseButton1Click:Connect(function()
-        -- Анимация: плавное изменение цвета
         for name, b in pairs(tabBtns) do
             local tween = TweenService:Create(b, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
                 BackgroundColor3 = Color3.fromRGB(240, 240, 240),
@@ -147,13 +161,12 @@ for i = 1, 3 do
 end
 
 -- Активируем первую вкладку
-local firstBtn = tabBtns["Visuals"]
-if firstBtn then
-    firstBtn.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
-    firstBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+if tabBtns["Visuals"] then
+    tabBtns["Visuals"].BackgroundColor3 = Color3.fromRGB(200, 200, 200)
+    tabBtns["Visuals"].TextColor3 = Color3.fromRGB(0, 0, 0)
 end
 
--- === ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ДЛЯ ЭЛЕМЕНТОВ ===
+-- === ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ===
 local function CreateToggleRow(parent, label, defaultState, callback, yPos)
     local row = Instance.new("Frame")
     row.Parent = parent
@@ -295,7 +308,7 @@ local function CreateSlider(parent, label, minVal, maxVal, defaultVal, callback,
     return row
 end
 
--- === СОЗДАНИЕ ЭЛЕМЕНТОВ В VISUALS ===
+-- === НАПОЛНЕНИЕ ВКЛАДКИ VISUALS ===
 local visualsContent = tabContents["Visuals"]
 local yPos = 10
 
@@ -375,7 +388,7 @@ yPos = yPos + 50
 
 visualsContent.CanvasSize = UDim2.new(0, 0, 0, yPos + 20)
 
--- === СОЗДАНИЕ ЭЛЕМЕНТОВ В MISC ===
+-- === НАПОЛНЕНИЕ ВКЛАДКИ MISC ===
 local miscContent = tabContents["Misc"]
 local miscY = 10
 
@@ -411,7 +424,7 @@ miscY = miscY + 50
 
 miscContent.CanvasSize = UDim2.new(0, 0, 0, miscY + 20)
 
--- === ФУНКЦИИ ДЛЯ ПРИНУДИТЕЛЬНОГО ОБНОВЛЕНИЯ ===
+-- === ПРИНУДИТЕЛЬНОЕ ОБНОВЛЕНИЕ ФУНКЦИЙ (КАЖДЫЙ КАДР) ===
 RunService.RenderStepped:Connect(function()
     if ThirdPersonEnabled then
         local char = LocalPlayer.Character
@@ -535,7 +548,7 @@ function ClearBigHead()
     bigHeadObjects = {}
 end
 
--- === ПОСТОЯННОЕ ОБНОВЛЕНИЕ ДЛЯ ESP и BIG HEAD ===
+-- === ПОСТОЯННОЕ ОБНОВЛЕНИЕ ===
 RunService.Heartbeat:Connect(function()
     for _, targetPlayer in ipairs(Players:GetPlayers()) do
         if targetPlayer ~= LocalPlayer then
@@ -561,7 +574,7 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- === СОБЫТИЯ ИГРОКОВ ===
+-- === СОБЫТИЯ ===
 Players.PlayerAdded:Connect(function(player)
     player.CharacterAdded:Connect(function()
         UpdateESP()
@@ -589,7 +602,7 @@ end)
 UpdateESP()
 UpdateBigHead()
 
--- === КНОПКА ОТКРЫТИЯ МЕНЮ ===
+-- === КНОПКА ОТКРЫТИЯ ===
 local OpenBtn = Instance.new("TextButton")
 OpenBtn.Parent = ScreenGui
 OpenBtn.Size = UDim2.new(0, 50, 0, 30)
@@ -616,7 +629,7 @@ Watermark.Parent = ScreenGui
 Watermark.Size = UDim2.new(0, 200, 0, 30)
 Watermark.Position = UDim2.new(0, 10, 1, -40)
 Watermark.BackgroundTransparency = 1
-Watermark.Text = "Zertyx v5.0 | BloxStrike"
+Watermark.Text = "Zertyx v5.1 | BloxStrike"
 Watermark.TextColor3 = Color3.fromRGB(150, 150, 150)
 Watermark.TextSize = 13
 Watermark.Font = Enum.Font.GothamBold
@@ -651,6 +664,6 @@ _G.Zertyx = {
     ToggleMenu = function() MainFrame.Visible = not MainFrame.Visible end
 }
 
-print("ZERTYX v5.0 LOADED!")
+print("ZERTYX v5.1 LOADED!")
 print("Press ≡ to open menu")
 print("ESP: ON | Big Head: OFF | Third Person: OFF | FOV: OFF | Move before time: OFF")
