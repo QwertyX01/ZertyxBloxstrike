@@ -1,4 +1,4 @@
--- Zertyx CHEAT v4.8 - THIRD PERSON + FOV
+-- Zertyx CHEAT v4.9 - MISC + MOVE BEFORE TIME
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
@@ -9,12 +9,14 @@ local ESPEnabled = true
 local BigHeadEnabled = false
 local ThirdPersonEnabled = false
 local FOVEnabled = false
+local MoveBeforeTimeEnabled = false
 local ZoomDistance = 10
 local FOVValue = 120
 local espObjects = {}
 local bigHeadObjects = {}
 local originalCameraOffset = nil
 local originalFOV = nil
+local originalWalkSpeed = nil
 
 -- === ГЛАВНОЕ МЕНЮ ===
 local ScreenGui = Instance.new("ScreenGui")
@@ -119,6 +121,9 @@ end
 local visualsContent = tabContents["Visuals"]
 local yPos = 10
 
+-- MISC TAB
+local miscContent = tabContents["Misc"]
+
 -- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
 local function CreateToggleRow(parent, label, defaultState, callback, yPos)
     local row = Instance.new("Frame")
@@ -135,7 +140,7 @@ local function CreateToggleRow(parent, label, defaultState, callback, yPos)
     
     local labelText = Instance.new("TextLabel")
     labelText.Parent = row
-    labelText.Size = UDim2.new(0, 140, 1, 0)
+    labelText.Size = UDim2.new(0, 180, 1, 0)
     labelText.Position = UDim2.new(0, 12, 0, 0)
     labelText.BackgroundTransparency = 1
     labelText.Text = label
@@ -173,7 +178,6 @@ local function CreateToggleRow(parent, label, defaultState, callback, yPos)
     return row, toggle
 end
 
--- ФУНКЦИЯ СОЗДАНИЯ СЛАЙДЕРА
 local function CreateSlider(parent, label, minVal, maxVal, defaultVal, callback, yPos)
     local row = Instance.new("Frame")
     row.Parent = parent
@@ -262,7 +266,7 @@ local function CreateSlider(parent, label, minVal, maxVal, defaultVal, callback,
     return row
 end
 
--- === СОЗДАНИЕ ЭЛЕМЕНТОВ ===
+-- === СОЗДАНИЕ ЭЛЕМЕНТОВ В VISUALS ===
 CreateToggleRow(visualsContent, "ESP", ESPEnabled, function(state)
     ESPEnabled = state
     if state then UpdateESP() else ClearESP() end
@@ -275,7 +279,6 @@ CreateToggleRow(visualsContent, "Big Head", BigHeadEnabled, function(state)
 end, yPos)
 yPos = yPos + 50
 
--- Third Person
 local thirdPersonRow, thirdPersonToggle = CreateToggleRow(visualsContent, "Third Person", ThirdPersonEnabled, function(state)
     ThirdPersonEnabled = state
     if state then 
@@ -312,7 +315,6 @@ end, yPos)
 zoomSlider.Visible = false
 yPos = yPos + 50
 
--- FOV
 local fovRow, fovToggle = CreateToggleRow(visualsContent, "FOV", FOVEnabled, function(state)
     FOVEnabled = state
     if state then 
@@ -339,33 +341,39 @@ end, yPos)
 fovSlider.Visible = false
 yPos = yPos + 50
 
--- AIM TAB
-local aimContent = tabContents["Aim"]
-local aimLabel = Instance.new("TextLabel")
-aimLabel.Parent = aimContent
-aimLabel.Size = UDim2.new(1, 0, 1, 0)
-aimLabel.Position = UDim2.new(0, 0, 0, 0)
-aimLabel.BackgroundTransparency = 1
-aimLabel.Text = "AIM TAB"
-aimLabel.TextColor3 = Color3.fromRGB(180, 150, 200)
-aimLabel.TextSize = 24
-aimLabel.Font = Enum.Font.GothamBold
-aimLabel.TextXAlignment = Enum.TextXAlignment.Center
-aimLabel.TextYAlignment = Enum.TextYAlignment.Center
-
--- MISC TAB
-local miscContent = tabContents["Misc"]
-local miscLabel = Instance.new("TextLabel")
-miscLabel.Parent = miscContent
-miscLabel.Size = UDim2.new(1, 0, 1, 0)
-miscLabel.Position = UDim2.new(0, 0, 0, 0)
-miscLabel.BackgroundTransparency = 1
-miscLabel.Text = "MISC TAB"
-miscLabel.TextColor3 = Color3.fromRGB(180, 150, 200)
-miscLabel.TextSize = 24
-miscLabel.Font = Enum.Font.GothamBold
-miscLabel.TextXAlignment = Enum.TextXAlignment.Center
-miscLabel.TextYAlignment = Enum.TextYAlignment.Center
+-- === СОЗДАНИЕ ЭЛЕМЕНТОВ В MISC ===
+local miscY = 10
+CreateToggleRow(miscContent, "Move before time", MoveBeforeTimeEnabled, function(state)
+    MoveBeforeTimeEnabled = state
+    if state then
+        -- Сохраняем оригинальную скорость при первом включении
+        local char = LocalPlayer.Character
+        if char then
+            local humanoid = char:FindFirstChild("Humanoid")
+            if humanoid then
+                if originalWalkSpeed == nil then
+                    originalWalkSpeed = humanoid.WalkSpeed
+                end
+                humanoid.WalkSpeed = 16
+            end
+        end
+    else
+        -- Восстанавливаем оригинальную скорость
+        local char = LocalPlayer.Character
+        if char then
+            local humanoid = char:FindFirstChild("Humanoid")
+            if humanoid then
+                if originalWalkSpeed ~= nil then
+                    humanoid.WalkSpeed = originalWalkSpeed
+                    originalWalkSpeed = nil
+                else
+                    humanoid.WalkSpeed = 16 -- стандартная скорость
+                end
+            end
+        end
+    end
+end, miscY)
+miscY = miscY + 50
 
 -- === ПРИНУДИТЕЛЬНОЕ ОБНОВЛЕНИЕ КАЖДЫЙ КАДР ===
 RunService.RenderStepped:Connect(function()
@@ -383,6 +391,20 @@ RunService.RenderStepped:Connect(function()
     -- FOV
     if FOVEnabled then
         Camera.FieldOfView = FOVValue
+    end
+    
+    -- Move before time - принудительно устанавливаем скорость, если включено
+    if MoveBeforeTimeEnabled then
+        local char = LocalPlayer.Character
+        if char then
+            local humanoid = char:FindFirstChild("Humanoid")
+            if humanoid then
+                -- Если игра сбрасывает скорость, мы её перезаписываем
+                if humanoid.WalkSpeed ~= 16 then
+                    humanoid.WalkSpeed = 16
+                end
+            end
+        end
     end
 end)
 
@@ -514,6 +536,19 @@ Players.PlayerAdded:Connect(function(player)
     player.CharacterAdded:Connect(function()
         UpdateESP()
         UpdateBigHead()
+        -- Если MoveBeforeTime включена, применяем к новому персонажу
+        if MoveBeforeTimeEnabled then
+            local char = player.Character
+            if char then
+                local humanoid = char:FindFirstChild("Humanoid")
+                if humanoid then
+                    if originalWalkSpeed == nil then
+                        originalWalkSpeed = humanoid.WalkSpeed
+                    end
+                    humanoid.WalkSpeed = 16
+                end
+            end
+        end
     end)
 end)
 
@@ -552,7 +587,7 @@ Watermark.Parent = ScreenGui
 Watermark.Size = UDim2.new(0, 200, 0, 30)
 Watermark.Position = UDim2.new(0, 10, 1, -40)
 Watermark.BackgroundTransparency = 1
-Watermark.Text = "Zertyx v4.8 | BloxStrike"
+Watermark.Text = "Zertyx v4.9 | BloxStrike"
 Watermark.TextColor3 = Color3.fromRGB(180, 150, 200)
 Watermark.TextSize = 13
 Watermark.Font = Enum.Font.GothamBold
@@ -587,6 +622,6 @@ _G.Zertyx = {
     ToggleMenu = function() MainFrame.Visible = not MainFrame.Visible end
 }
 
-print("ZERTYX v4.8 LOADED!")
+print("ZERTYX v4.9 LOADED!")
 print("Press ≡ to open menu")
-print("ESP: ON | Big Head: OFF | Third Person: OFF | FOV: OFF")
+print("ESP: ON | Big Head: OFF | Third Person: OFF | FOV: OFF | Move before time: OFF")
